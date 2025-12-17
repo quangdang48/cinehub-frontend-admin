@@ -15,11 +15,6 @@ import type {
 } from "./types";
 import { movieSchema } from "./schemas";
 
-// ==================== GET Actions ====================
-
-/**
- * Get paginated list of movies with filters
- */
 export async function getMovies(
   filters: MovieFilters = {}
 ): Promise<PaginatedApiResponse<Movie>> {
@@ -38,6 +33,8 @@ export async function getMovies(
     if (filters.status) params.status = filters.status;
     if (filters.type) params.type = filters.type;
     if (filters.ageLimit) params.ageLimit = filters.ageLimit;
+    if (filters.sortBy) params.sortBy = filters.sortBy;
+    if (filters.sortOrder) params.sortOrder = filters.sortOrder;
 
     const response = await api.get<PaginatedApiResponse<Movie>>("/films", params);
     return response;
@@ -57,9 +54,6 @@ export async function getMovies(
   }
 }
 
-/**
- * Get single movie by ID
- */
 export async function getMovieById(id: string): Promise<Movie | null> {
   try {
     const response = await api.get<ApiResponse<Movie>>(`/films/${id}`);
@@ -70,9 +64,6 @@ export async function getMovieById(id: string): Promise<Movie | null> {
   }
 }
 
-/**
- * Get all genres for select options
- */
 export async function getGenres(): Promise<Genre[]> {
   try {
     const response = await api.get<PaginatedApiResponse<Genre>>("/genres", {
@@ -85,9 +76,6 @@ export async function getGenres(): Promise<Genre[]> {
   }
 }
 
-/**
- * Get all directors for select options
- */
 export async function getDirectors(): Promise<Director[]> {
   try {
     const response = await api.get<PaginatedApiResponse<Director>>("/directors", {
@@ -100,9 +88,6 @@ export async function getDirectors(): Promise<Director[]> {
   }
 }
 
-/**
- * Get all actors for select options
- */
 export async function getActors(): Promise<Actor[]> {
   try {
     const response = await api.get<PaginatedApiResponse<Actor>>("/actors", {
@@ -115,19 +100,11 @@ export async function getActors(): Promise<Actor[]> {
   }
 }
 
-// ==================== Mutation Actions ====================
-
-/**
- * Create a new movie
- */
 export async function createMovie(
   formData: CreateMovieDto
 ): Promise<ActionResult<Movie>> {
   try {
-    // Validate input
     const validatedData = movieSchema.parse(formData);
-
-    // Transform form data to DTO
     const createDto: CreateMovieDto = {
       title: validatedData.title,
       originalTitle: validatedData.originalTitle,
@@ -142,12 +119,8 @@ export async function createMovie(
       casts: validatedData.casts,
       genres: validatedData.genres,
     };
-
     const response = await api.post<ApiResponse<Movie>>("/films", createDto);
-
-    // Revalidate movies list page
     revalidatePath("/movies");
-
     return {
       success: true,
       data: response.data,
@@ -161,40 +134,15 @@ export async function createMovie(
   }
 }
 
-/**
- * Update an existing movie
- */
 export async function updateMovie(
   id: string,
   formData: Partial<UpdateMovieDto>
 ): Promise<ActionResult<Movie>> {
   try {
-    // Partial validation
-    const validatedData = movieSchema.partial().parse(formData);
-
-    // Transform form data to DTO
-    const updateDto: UpdateMovieDto = {
-      title: validatedData.title,
-      originalTitle: validatedData.originalTitle,
-      englishTitle: validatedData.englishTitle,
-      description: validatedData.description || undefined,
-      ageLimit: validatedData.ageLimit,
-      country: validatedData.country,
-      releaseDate: validatedData.releaseDate,
-      status: validatedData.status,
-      type: validatedData.type,
-      directors: validatedData.directors,
-      casts: validatedData.casts,
-      genres: validatedData.genres,
-    };
-
     const response = await api.put<ApiResponse<Movie>>(
       `/films/${id}`,
-      updateDto
+      formData
     );
-
-    // Revalidate pages
-    revalidatePath("/movies");
     revalidatePath(`/movies/${id}`);
 
     return {
@@ -210,16 +158,10 @@ export async function updateMovie(
   }
 }
 
-/**
- * Delete a movie
- */
 export async function deleteMovie(id: string): Promise<ActionResult> {
   try {
     await api.delete(`/films/${id}`);
-
-    // Revalidate movies list page
     revalidatePath("/movies");
-
     return {
       success: true,
     };

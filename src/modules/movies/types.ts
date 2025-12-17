@@ -1,5 +1,3 @@
-// ==================== Movie Types ====================
-
 export interface Movie extends Record<string, unknown> {
   id: string;
   title: string;
@@ -103,8 +101,6 @@ export interface Season {
   updatedAt: string;
 }
 
-// ==================== DTOs ====================
-
 export interface UpdateCastDto {
   character: string;
   actorId: string;
@@ -127,8 +123,6 @@ export interface CreateMovieDto {
 
 export interface UpdateMovieDto extends Partial<CreateMovieDto> {}
 
-// ==================== Filters ====================
-
 export interface MovieFilters {
   search?: string;
   country?: string;
@@ -141,9 +135,9 @@ export interface MovieFilters {
   ageLimit?: AgeLimit;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
-
-// ==================== Response Types ====================
 
 export interface MoviesResponse {
   data: Movie[];

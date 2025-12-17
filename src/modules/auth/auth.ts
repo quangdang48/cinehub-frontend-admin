@@ -1,38 +1,21 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { authConfig } from "@/config";
+import { ACCESS_TOKEN_EXPIRES_IN, authConfig } from "@/config";
 import type {
-  LoginResponseDto,
-  RefreshTokenResponseDto,
   ApiResponse,
 } from "@/types/api";
+import { api } from "@/lib/api-client";
+import { LoginResponseDto, RefreshTokenResponseDto } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
-
-// Token expiration time (1 hour)
-const ACCESS_TOKEN_EXPIRES_IN = 60 * 60 * 1000;
-
-/**
- * Refresh the access token using the refresh token
- */
 async function refreshAccessToken(token: any) {
   try {
-    const response = await fetch(`${API_URL}/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await api.post<ApiResponse<RefreshTokenResponseDto>>(
+      "/auth/refresh-token",
+      {
         refreshToken: token.refreshToken,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("RefreshAccessTokenError");
-    }
-
-    const data: ApiResponse<RefreshTokenResponseDto> = await response.json();
-    const refreshedTokens = data.data;
+      }
+    );
+    const refreshedTokens = response.data;
 
     return {
       ...token,
@@ -41,7 +24,6 @@ async function refreshAccessToken(token: any) {
       accessTokenExpires: Date.now() + ACCESS_TOKEN_EXPIRES_IN,
     };
   } catch (error) {
-    console.error("Error refreshing access token:", error);
     return {
       ...token,
       error: "RefreshAccessTokenError" as const,
@@ -64,24 +46,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         try {
-          const response = await fetch(`${API_URL}/auth/login`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+          const response = await api.post<ApiResponse<LoginResponseDto>>(
+            "/auth/login",
+            {
               email: credentials.email,
               password: credentials.password,
-            }),
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.message || "Invalid credentials");
-          }
-
-          const data: ApiResponse<LoginResponseDto> = await response.json();
-          const loginData = data.data;
+            }
+          );
+          const loginData = response.data;
 
           return {
             id: loginData.user.id,
@@ -94,7 +66,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             accessTokenExpires: Date.now() + ACCESS_TOKEN_EXPIRES_IN,
           };
         } catch (error) {
-          console.log("Login error:", error);
           return null;
         }
       },
@@ -102,7 +73,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user, trigger, session }) {
-      // Initial sign in
       if (user) {
         return {
           ...token,
@@ -117,12 +87,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       }
 
-      // Handle session update
       if (trigger === "update" && session) {
         return { ...token, ...session };
       }
 
-      // Return previous token if not expired
       if (Date.now() < token.accessTokenExpires) {
         return token;
       }
@@ -133,12 +101,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return {}
     },
     async session({ session, token }) {
-      // Handle refresh token error
       if (token.error === "RefreshAccessTokenError") {
         session.error = "RefreshAccessTokenError";
       }
-
-      // Expose user data and tokens to session
       session.user = {
         ...session.user,
         id: token.id,

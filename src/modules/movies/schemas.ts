@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { AgeLimit, FilmStatus, FilmType } from "./types";
 
-// ==================== Movie Form Schema ====================
-
 export const castSchema = z.object({
   character: z.string().min(1, "Tên nhân vật là bắt buộc"),
   actorId: z.string().min(1, "Vui lòng chọn diễn viên"),

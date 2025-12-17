@@ -7,9 +7,8 @@ import { cn } from "@/lib/utils";
 interface AdminLayoutClientProps {
   children: React.ReactNode;
   user?: {
-    fullName?: string;
+    name?: string;
     email?: string;
-    avatar?: string;
   };
 }
 

@@ -3,19 +3,34 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 interface DataTablePaginationProps {
   currentPage: number;
   totalPages: number;
+  totalItems?: number;
+  pageSize?: number;
+  pageSizeOptions?: number[];
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
   className?: string;
 }
 
 export function DataTablePagination({
   currentPage,
   totalPages,
+  totalItems,
+  pageSize = 10,
+  pageSizeOptions = [10, 20, 50, 100],
   onPageChange,
+  onPageSizeChange,
   className,
 }: DataTablePaginationProps) {
   const canGoPrevious = currentPage > 1;
@@ -57,9 +72,43 @@ export function DataTablePagination({
   };
 
   return (
-    <div className={cn("flex items-center justify-between px-2", className)}>
-      <div className="text-sm text-muted-foreground">
-        Trang {currentPage} / {totalPages}
+    <div className={cn("flex flex-col gap-4 sm:flex-row items-center justify-between px-2", className)}>
+      <div className="flex items-center gap-4">
+        {onPageSizeChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Hiển thị
+            </span>
+            <Select
+              value={pageSize.toString()}
+              onValueChange={(value) => onPageSizeChange(Number(value))}
+            >
+              <SelectTrigger className="h-8 w-[70px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              mục
+            </span>
+          </div>
+        )}
+        <div className="text-sm text-muted-foreground whitespace-nowrap">
+          {totalItems ? (
+            <>
+              {(currentPage - 1) * pageSize + 1} -{" "}
+              {Math.min(currentPage * pageSize, totalItems)} của {totalItems}
+            </>
+          ) : (
+            <>Trang {currentPage} / {totalPages}</>
+          )}
+        </div>
       </div>
       <div className="flex items-center space-x-2">
         <Button

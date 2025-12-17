@@ -16,9 +16,8 @@ import { logout } from "@/modules/auth/actions";
 interface HeaderProps {
   sidebarCollapsed?: boolean;
   user?: {
-    fullName?: string;
+    name?: string;
     email?: string;
-    avatar?: string;
   };
 }
 
@@ -83,11 +82,11 @@ export function Header({ sidebarCollapsed = false, user }: HeaderProps) {
         </button>
 
         {/* User menu */}
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 rounded-lg p-1 hover:bg-accent">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium">{user?.fullName || "Admin User"}</p>
+                <p className="text-sm font-medium">{user?.name || "Admin User"}</p>
                 <p className="text-xs text-muted-foreground">{user?.email || "admin@cinehub.vn"}</p>
               </div>
               <Avatar>

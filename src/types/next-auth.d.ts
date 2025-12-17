@@ -10,7 +10,7 @@ declare module "next-auth" {
       gender: string;
       role: "admin" | "user";
 
-    } & DefaultSession["user"];
+    };
     accessToken: string;
     refreshToken: string;
     accessTokenExpires: number;

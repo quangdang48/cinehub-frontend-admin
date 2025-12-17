@@ -11,9 +11,8 @@ export default async function AdminLayout({
   return (
     <AdminLayoutClient
       user={session?.user ? {
-        fullName: session.user.fullName,
+        name: session.user.name,
         email: session.user.email,
-        avatar: session.user.avatar,
       } : undefined}
     >
       {children}

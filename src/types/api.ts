@@ -1,6 +1,7 @@
-// ==================== API Response Types ====================
 export type ApiResponse<T> = {
   success: boolean;
+  message?: string;
+  errors?: Record<string, any>;
   timestamp: string;
   path: string;
   data: T;
@@ -14,36 +15,16 @@ export type PaginatedApiResponse<T> = Omit<ApiResponse<T>, "data"> & {
   currentPage: number;
 };
 
-
-// ==================== Auth Types ====================
-
-export interface UserDto {
-  id: string;
-  email: string;
-  name: string;
-  gender: string;
-  role: "admin" | "user";
-  createdAt: string;
-  updatedAt: string;
+export class ApiError extends Error {
+  constructor(
+    public statusCode: number,
+    message: string,
+    public details?: unknown
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
 }
-
-export interface LoginRequestDto {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponseDto {
-  accessToken: string;
-  refreshToken: string;
-  user: UserDto;
-}
-
-export interface RefreshTokenResponseDto {
-  accessToken: string;
-  refreshToken: string;
-}
-
-// ==================== Action Result Types ====================
 
 export interface ActionResult<T = void> {
   success: boolean;

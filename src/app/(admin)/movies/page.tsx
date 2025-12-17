@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 interface MoviesPageProps {
   searchParams: Promise<{
     page?: string;
+    limit?: string;
     search?: string;
     country?: string;
     releaseYear?: string;
@@ -19,6 +20,8 @@ interface MoviesPageProps {
     status?: string;
     type?: string;
     ageLimit?: string;
+    sortBy?: string;
+    sortOrder?: string;
   }>;
 }
 
@@ -28,7 +31,7 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
   // Parse filters from search params
   const filters: MovieFiltersType = {
     page: params.page ? parseInt(params.page) : 1,
-    limit: 10,
+    limit: params.limit ? parseInt(params.limit) : 10,
     search: params.search,
     country: params.country,
     releaseYear: params.releaseYear ? parseInt(params.releaseYear) : undefined,
@@ -38,6 +41,8 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
     status: params.status as FilmStatus,
     type: params.type as FilmType,
     ageLimit: params.ageLimit as AgeLimit,
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder as "asc" | "desc",
   };
 
   // Fetch data in parallel

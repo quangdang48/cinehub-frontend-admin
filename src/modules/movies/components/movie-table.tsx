@@ -11,6 +11,8 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -28,6 +30,7 @@ import {
   Pencil,
   Trash2,
   Eye,
+  Settings2,
 } from "lucide-react";
 import { deleteMovie, updateMovie } from "../actions";
 import { FilmStatus, FilmType, AgeLimit, type Movie, type MoviesResponse } from "../types";
@@ -35,7 +38,7 @@ import { normalizeUrl } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { DataTable } from "@/components/ui/data-table";
+import { DataTable, type Column, type SortConfig } from "@/components/ui/data-table";
 import { DataTablePagination } from "@/components/ui/data-table-pagination";
 
 interface MovieTableProps {
@@ -74,13 +77,66 @@ export function MovieTable({ data }: MovieTableProps) {
   const [isPending, startTransition] = useTransition();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  
+  // Column visibility state
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    "poster",
+    "title",
+    "genres",
+    "type",
+    "ageLimit",
+    "releaseDate",
+    "status",
+    "views",
+    "rating",
+    "actions",
+  ]);
 
   const currentPage = Number(searchParams.get("page")) || 1;
+  const pageSize = Number(searchParams.get("limit")) || 10;
+  const sortKey = searchParams.get("sortBy") || undefined;
+  const sortDirection = (searchParams.get("sortOrder") as "asc" | "desc") || "desc";
+
+  const sortConfig: SortConfig | undefined = sortKey
+    ? { key: sortKey, direction: sortDirection }
+    : undefined;
 
   const handlePageChange = (page: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", page.toString());
     router.push(`/movies?${params.toString()}`);
+  };
+
+  const handlePageSizeChange = (size: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("limit", size.toString());
+    params.set("page", "1"); // Reset to first page when changing page size
+    router.push(`/movies?${params.toString()}`);
+  };
+
+  const handleSort = (key: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    // Toggle sort direction if clicking the same column
+    if (sortKey === key) {
+      const newDirection = sortDirection === "asc" ? "desc" : "asc";
+      params.set("sortOrder", newDirection);
+    } else {
+      // Default to descending for new column
+      params.set("sortBy", key);
+      params.set("sortOrder", "desc");
+    }
+    
+    params.set("page", "1"); // Reset to first page when sorting
+    router.push(`/movies?${params.toString()}`);
+  };
+
+  const toggleColumn = (columnKey: string) => {
+    setVisibleColumns((prev) =>
+      prev.includes(columnKey)
+        ? prev.filter((key) => key !== columnKey)
+        : [...prev, columnKey]
+    );
   };
 
   const handleEdit = (movie: Movie) => {
@@ -106,8 +162,7 @@ export function MovieTable({ data }: MovieTableProps) {
 
   const handleToggleStatus = (movie: Movie, newStatus: FilmStatus) => {
     startTransition(async () => {
-      const result = await updateMovie(movie.id, { status: newStatus });
-
+      const result = await updateMovie(movie.id, { ...movie, status: newStatus, directors: undefined, casts: undefined, genres: undefined });
       if (result.success) {
         toast.success(`Đã chuyển trạng thái sang ${statusLabels[newStatus]}`);
         router.refresh();
@@ -127,16 +182,12 @@ export function MovieTable({ data }: MovieTableProps) {
     return date.toLocaleDateString("vi-VN");
   };
 
-  const columns: Array<{
-    key: string;
-    title: string;
-    className?: string;
-    render?: (item: Movie, index: number) => React.ReactNode;
-  }> = [
+  const columns: Column<Movie>[] = [
     {
       key: "poster",
       title: "Poster",
       className: "w-[80px]",
+      hideable: true,
       render: (movie: Movie) => {
         let posterUrl = movie.posters.find(p => p.type === "default")?.url;
         posterUrl = posterUrl ? normalizeUrl(posterUrl) : undefined;
@@ -162,6 +213,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "title",
       title: "Tiêu đề",
+      sortable: true,
+      hideable: false, // Always show title
       render: (movie: Movie) => (
         <div className="max-w-xs">
           <p className="font-medium truncate">{movie.title}</p>
@@ -177,6 +230,7 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "genres",
       title: "Thể loại",
+      hideable: true,
       render: (movie: Movie) => (
         <div className="flex flex-wrap gap-1">
           {movie.genres?.slice(0, 2).map((genre) => (
@@ -195,6 +249,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "type",
       title: "Loại",
+      hideable: true,
+      sortable: true,
       render: (movie: Movie) => (
         <Badge variant="secondary">
           {typeLabels[movie.type]}
@@ -204,6 +260,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "ageLimit",
       title: "Độ tuổi",
+      hideable: true,
+      sortable: true,
       render: (movie: Movie) => (
         <Badge variant="outline" className="text-xs">
           {ageLimitLabels[movie.ageLimit]}
@@ -213,6 +271,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "releaseDate",
       title: "Ngày phát hành",
+      sortable: true,
+      hideable: true,
       render: (movie: Movie) => (
         <span className="text-sm">{formatDate(movie.releaseDate)}</span>
       ),
@@ -220,6 +280,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "status",
       title: "Trạng thái",
+      sortable: true,
+      hideable: true,
       render: (movie: Movie) => (
         <Badge className={statusColors[movie.status]}>
           {statusLabels[movie.status]}
@@ -229,6 +291,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "views",
       title: "Lượt xem",
+      sortable: true,
+      hideable: true,
       render: (movie: Movie) => (
         <span className="text-sm">{movie.views?.toLocaleString() || 0}</span>
       ),
@@ -236,6 +300,8 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "rating",
       title: "Đánh giá",
+      sortable: true,
+      hideable: true,
       render: (movie: Movie) => (
         <div className="flex flex-col gap-1">
           {movie.userRating && (
@@ -255,8 +321,9 @@ export function MovieTable({ data }: MovieTableProps) {
       key: "actions",
       title: "",
       className: "w-[70px]",
+      hideable: false, // Always show actions
       render: (movie: Movie) => (
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -268,12 +335,18 @@ export function MovieTable({ data }: MovieTableProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleEdit(movie)}>
+            <DropdownMenuItem onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(movie);
+            }}>
               <Pencil className="mr-2 h-4 w-4" />
               Chỉnh sửa
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => window.open(`/watch/${movie.id}`, "_blank")}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(`/watch/${movie.id}`, "_blank");
+              }}
             >
               <Eye className="mr-2 h-4 w-4" />
               Xem trước
@@ -281,21 +354,30 @@ export function MovieTable({ data }: MovieTableProps) {
             <DropdownMenuSeparator />
             {movie.status !== FilmStatus.RELEASING && (
               <DropdownMenuItem
-                onClick={() => handleToggleStatus(movie, FilmStatus.RELEASING)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleStatus(movie, FilmStatus.RELEASING);
+                }}
               >
                 Đang phát hành
               </DropdownMenuItem>
             )}
             {movie.status !== FilmStatus.UPCOMING && (
               <DropdownMenuItem
-                onClick={() => handleToggleStatus(movie, FilmStatus.UPCOMING)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleStatus(movie, FilmStatus.UPCOMING);
+                }}
               >
                 Sắp ra mắt
               </DropdownMenuItem>
             )}
             {movie.status !== FilmStatus.ENDED && (
               <DropdownMenuItem
-                onClick={() => handleToggleStatus(movie, FilmStatus.ENDED)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleStatus(movie, FilmStatus.ENDED);
+                }}
               >
                 Đã kết thúc
               </DropdownMenuItem>
@@ -303,7 +385,10 @@ export function MovieTable({ data }: MovieTableProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-red-600"
-              onClick={() => openDeleteDialog(movie)}
+              onClick={(e) => {
+                e.stopPropagation();
+                openDeleteDialog(movie);
+              }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Xóa
@@ -313,6 +398,9 @@ export function MovieTable({ data }: MovieTableProps) {
       ),
     },
   ];
+
+  // Get hideable columns
+  const hideableColumns = columns.filter((col) => col.hideable);
 
   return (
     <>
@@ -324,12 +412,40 @@ export function MovieTable({ data }: MovieTableProps) {
             </div>
           )}
 
+          {/* Column visibility controls */}
+          <div className="p-4 border-b flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Hiển thị cột
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-50">
+                <DropdownMenuLabel>Chọn cột hiển thị</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {hideableColumns.map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.key}
+                    checked={visibleColumns.includes(column.key)}
+                    onCheckedChange={() => toggleColumn(column.key)}
+                  >
+                    {column.title}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
           <div className="rounded-md border">
             <DataTable
               columns={columns}
               data={data.data}
               emptyMessage="Không tìm thấy phim nào"
               onRowClick={handleEdit}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              visibleColumns={visibleColumns}
             />
           </div>
 
@@ -338,7 +454,10 @@ export function MovieTable({ data }: MovieTableProps) {
               <DataTablePagination
                 currentPage={currentPage}
                 totalPages={data.totalPages}
+                totalItems={data.totalItems}
+                pageSize={pageSize}
                 onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
               />
             </div>
           )}

@@ -5,43 +5,22 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectLabel,
+  SelectGroup,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, X, Filter } from "lucide-react";
-import { FilmStatus, FilmType, AgeLimit, type Genre } from "../types";
+import { Search, X } from "lucide-react";
+import { type Genre } from "../types";
+import { typeOptions, statusOptions, ageLimitOptions } from "../const";
 
 interface MovieFiltersProps {
   genres: Genre[];
 }
-
-const statusOptions: { value: FilmStatus | "all"; label: string }[] = [
-  { value: "all", label: "Tất cả trạng thái" },
-  { value: FilmStatus.UPCOMING, label: "Sắp ra mắt" },
-  { value: FilmStatus.RELEASING, label: "Đang phát hành" },
-  { value: FilmStatus.ENDED, label: "Đã kết thúc" },
-];
-
-const typeOptions: { value: FilmType | "all"; label: string }[] = [
-  { value: "all", label: "Tất cả loại" },
-  { value: FilmType.MOVIE, label: "Phim lẻ" },
-  { value: FilmType.SERIES, label: "Phim bộ" },
-];
-
-const ageLimitOptions: { value: AgeLimit | "all"; label: string }[] = [
-  { value: "all", label: "Tất cả độ tuổi" },
-  { value: AgeLimit.ALL, label: "Mọi lứa tuổi" },
-  { value: AgeLimit.P, label: "P - Phổ thông" },
-  { value: AgeLimit.K, label: "K - Dưới 13 tuổi" },
-  { value: AgeLimit.T13, label: "T13 - Từ 13 tuổi" },
-  { value: AgeLimit.T16, label: "T16 - Từ 16 tuổi" },
-  { value: AgeLimit.T18, label: "T18 - Từ 18 tuổi" },
-];
 
 export function MovieFilters({ genres }: MovieFiltersProps) {
   const router = useRouter();
@@ -51,26 +30,26 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
   const [search, setSearch] = useState(searchParams.get("search") || "");
 
   const currentFilters = {
-    status: searchParams.get("status") || "all",
-    type: searchParams.get("type") || "all",
-    ageLimit: searchParams.get("ageLimit") || "all",
-    genreId: searchParams.get("genreId") || "all",
+    status: searchParams.get("status") || "",
+    type: searchParams.get("type") || "",
+    ageLimit: searchParams.get("ageLimit") || "",
+    genreId: searchParams.get("genreId") || "",
     country: searchParams.get("country") || "",
   };
 
   const hasActiveFilters =
-    currentFilters.status !== "all" ||
-    currentFilters.type !== "all" ||
-    currentFilters.ageLimit !== "all" ||
-    currentFilters.genreId !== "all" ||
-    currentFilters.country !== "" ||
+    currentFilters.status ||
+    currentFilters.type ||
+    currentFilters.ageLimit ||
+    currentFilters.genreId ||
+    currentFilters.country ||
     search;
 
   const updateFilter = (key: string, value: string) => {
     startTransition(() => {
       const params = new URLSearchParams(searchParams.toString());
       
-      if (value === "all" || value === "") {
+      if (!value) {
         params.delete(key);
       } else {
         params.set(key, value);
@@ -122,19 +101,22 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
         </div>
 
         {/* Status filter */}
-        <Select
+        <Select 
           value={currentFilters.status}
           onValueChange={(value) => updateFilter("status", value)}
         >
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Trạng thái" />
+          <SelectTrigger id="status-filter  " className='w-35'>
+            <SelectValue placeholder='Trạng thái' />
           </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
+          <SelectContent className='data-[state=open]:slide-in-from-bottom-8 data-[state=open]:zoom-in-100 duration-400'>
+            <SelectGroup>
+              <SelectLabel>Trạng thái</SelectLabel>
+              {statusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 
@@ -146,12 +128,15 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
           <SelectTrigger className="w-35">
             <SelectValue placeholder="Loại phim" />
           </SelectTrigger>
-          <SelectContent>
-            {typeOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
+          <SelectContent className='data-[state=open]:slide-in-from-bottom-8 data-[state=open]:zoom-in-100 duration-400'>
+            <SelectGroup>
+              <SelectLabel>Loại phim</SelectLabel>
+                {typeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 
@@ -164,11 +149,14 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
             <SelectValue placeholder="Độ tuổi" />
           </SelectTrigger>
           <SelectContent>
-            {ageLimitOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
+              <SelectGroup>
+                <SelectLabel>Độ tuổi</SelectLabel>
+                  {ageLimitOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
           </SelectContent>
         </Select>
 
@@ -181,12 +169,14 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
             <SelectValue placeholder="Thể loại" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả thể loại</SelectItem>
-            {genres.map((genre) => (
-              <SelectItem key={genre.id} value={genre.id}>
-                {genre.name}
-              </SelectItem>
-            ))}
+            <SelectGroup>
+              <SelectLabel>Thể loại</SelectLabel>
+                {genres.map((genre) => (
+                  <SelectItem key={genre.id} value={genre.id}>
+                    {genre.name}
+                  </SelectItem>
+                ))}
+            </SelectGroup>
           </SelectContent>
         </Select>
 
@@ -217,44 +207,44 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
               </button>
             </Badge>
           )}
-          {currentFilters.status !== "all" && (
+          {currentFilters.status&& (
             <Badge variant="secondary">
               {statusOptions.find((s) => s.value === currentFilters.status)?.label}
               <button
-                onClick={() => updateFilter("status", "all")}
+                onClick={() => updateFilter("status", "")}
                 className="ml-1 hover:text-foreground"
               >
                 <X className="h-3 w-3" />
               </button>
             </Badge>
           )}
-          {currentFilters.type !== "all" && (
+          {currentFilters.type&& (
             <Badge variant="secondary">
               {typeOptions.find((t) => t.value === currentFilters.type)?.label}
               <button
-                onClick={() => updateFilter("type", "all")}
+                onClick={() => updateFilter("type", "")}
                 className="ml-1 hover:text-foreground"
               >
                 <X className="h-3 w-3" />
               </button>
             </Badge>
           )}
-          {currentFilters.ageLimit !== "all" && (
+          {currentFilters.ageLimit&& (
             <Badge variant="secondary">
               {ageLimitOptions.find((a) => a.value === currentFilters.ageLimit)?.label}
               <button
-                onClick={() => updateFilter("ageLimit", "all")}
+                onClick={() => updateFilter("ageLimit", "")}
                 className="ml-1 hover:text-foreground"
               >
                 <X className="h-3 w-3" />
               </button>
             </Badge>
           )}
-          {currentFilters.genreId !== "all" && (
+          {currentFilters.genreId&& (
             <Badge variant="secondary">
               {genres.find((g) => g.id === currentFilters.genreId)?.name}
               <button
-                onClick={() => updateFilter("genreId", "all")}
+                onClick={() => updateFilter("genreId", "")}
                 className="ml-1 hover:text-foreground"
               >
                 <X className="h-3 w-3" />
