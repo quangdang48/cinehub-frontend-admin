@@ -138,11 +138,3 @@ export interface MovieFilters {
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }
-
-export interface MoviesResponse {
-  data: Movie[];
-  totalItems: number;
-  totalPages: number;
-  itemsPerPage: number;
-  currentPage: number;
-}

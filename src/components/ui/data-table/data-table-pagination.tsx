@@ -83,7 +83,7 @@ export function DataTablePagination({
               value={pageSize.toString()}
               onValueChange={(value) => onPageSizeChange(Number(value))}
             >
-              <SelectTrigger className="h-8 w-[70px]">
+              <SelectTrigger className="h-8 w-17.5">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
