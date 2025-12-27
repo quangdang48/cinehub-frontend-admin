@@ -90,15 +90,39 @@ export interface Poster {
   updatedAt: string;
 }
 
-export interface Season {
+export enum SeasonStatus {
+  UPCOMING = "UPCOMING",
+  RELEASING = "RELEASING",
+  ENDED = "ENDED",
+}
+
+export interface Episode {
   id: string;
-  seasonNumber: number;
-  title: string;
-  description?: string;
-  releaseDate: string;
-  status: string;
+  number: number;
+  releaseDate?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Season {
+  id: string;
+  number: number;
+  releaseDate?: string;
+  endDate?: string;
+  status: SeasonStatus;
+  episodes: Episode[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSeasonDto {
+  releaseDate?: string;
+  endDate?: string;
+  status?: SeasonStatus;
+}
+
+export interface CreateEpisodeDto {
+  releaseDate?: string;
 }
 
 export interface UpdateCastDto {
@@ -116,6 +140,7 @@ export interface CreateMovieDto {
   releaseDate: string;
   status: FilmStatus;
   type: FilmType;
+  imdbRating?: number;
   directors?: string[];
   casts?: UpdateCastDto[];
   genres?: string[];

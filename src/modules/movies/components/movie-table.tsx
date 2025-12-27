@@ -23,14 +23,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react";
-import { deleteMovie, updateMovie } from "../actions";
+import { deleteMovie } from "../actions";
 import { FilmStatus, FilmType, AgeLimit, type Movie } from "../types";
 import { normalizeUrl } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DataTableWrapper } from "@/components/ui/data-table/data-table-wrapper";
+import { DataTableWrapper, type Column } from "@/components/shared/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
-import type { Column } from "@/components/ui/data-table";
 import { PaginatedApiResponse } from "@/types/api";
 
 interface MovieTableProps {
@@ -98,7 +97,7 @@ export function MovieTable({ data }: MovieTableProps) {
 
   // Movie-specific handlers
   const handleEdit = (movie: Movie) => {
-    router.push(`/movies/${movie.id}`);
+    router.push(`/movies/${movie.id}/edit`);
   };
 
   const handleDelete = async () => {
@@ -120,19 +119,19 @@ export function MovieTable({ data }: MovieTableProps) {
 
   const handleToggleStatus = (movie: Movie, newStatus: FilmStatus) => {
     startTransition(async () => {
-      const result = await updateMovie(movie.id, {
-        ...movie,
-        status: newStatus,
-        directors: undefined,
-        casts: undefined,
-        genres: undefined,
-      });
-      if (result.success) {
-        toast.success(`Đã chuyển trạng thái sang ${statusLabels[newStatus]}`);
-        router.refresh();
-      } else {
-        toast.error(result.error || "Không thể cập nhật trạng thái");
-      }
+      // const result = await updateMovie(movie.id, {
+      //   ...movie,
+      //   status: newStatus,
+      //   directors: undefined,
+      //   casts: undefined,
+      //   genres: undefined,
+      // });
+      // if (result.success) {
+      //   toast.success(`Đã chuyển trạng thái sang ${statusLabels[newStatus]}`);
+      //   router.refresh();
+      // } else {
+      //   toast.error(result.error || "Không thể cập nhật trạng thái");
+      // }
     });
   };
 

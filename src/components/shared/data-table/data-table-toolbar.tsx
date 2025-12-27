@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import type { Column } from "@/components/ui/data-table";
+import type { Column } from "@/components/shared/data-table";
 
 interface DataTableToolbarProps<T> {
   columns: Column<T>[];

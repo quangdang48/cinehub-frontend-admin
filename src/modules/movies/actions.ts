@@ -12,8 +12,11 @@ import type {
   Genre,
   Director,
   Actor,
+  Season,
+  Episode,
+  CreateSeasonDto,
+  CreateEpisodeDto,
 } from "./types";
-import { movieSchema } from "./schemas";
 
 export async function getMovies(
   filters: MovieFilters = {}
@@ -101,25 +104,10 @@ export async function getActors(): Promise<Actor[]> {
 }
 
 export async function createMovie(
-  formData: CreateMovieDto
+  data: CreateMovieDto
 ): Promise<ActionResult<Movie>> {
   try {
-    const validatedData = movieSchema.parse(formData);
-    const createDto: CreateMovieDto = {
-      title: validatedData.title,
-      originalTitle: validatedData.originalTitle,
-      englishTitle: validatedData.englishTitle,
-      description: validatedData.description || undefined,
-      ageLimit: validatedData.ageLimit,
-      country: validatedData.country,
-      releaseDate: validatedData.releaseDate,
-      status: validatedData.status,
-      type: validatedData.type,
-      directors: validatedData.directors,
-      casts: validatedData.casts,
-      genres: validatedData.genres,
-    };
-    const response = await api.post<ApiResponse<Movie>>("/films", createDto);
+    const response = await api.post<ApiResponse<Movie>>("/films", data);
     revalidatePath("/movies");
     return {
       success: true,
@@ -136,15 +124,12 @@ export async function createMovie(
 
 export async function updateMovie(
   id: string,
-  formData: Partial<UpdateMovieDto>
+  data: UpdateMovieDto
 ): Promise<ActionResult<Movie>> {
   try {
-    const response = await api.put<ApiResponse<Movie>>(
-      `/films/${id}`,
-      formData
-    );
+    const response = await api.put<ApiResponse<Movie>>(`/films/${id}`, data);
+    revalidatePath("/movies");
     revalidatePath(`/movies/${id}`);
-
     return {
       success: true,
       data: response.data,
@@ -167,6 +152,114 @@ export async function deleteMovie(id: string): Promise<ActionResult> {
     };
   } catch (error) {
     console.error("Error deleting movie:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function getSeasons(filmId: string): Promise<Season[]> {
+  try {
+    // First call to get total count
+    const firstResponse = await api.get<PaginatedApiResponse<Season>>(
+      `/films/${filmId}/seasons`,
+      { limit: 1, page: 1 }
+    );
+    
+    if (firstResponse.totalItems === 0) {
+      return [];
+    }
+    
+    // Second call to get all seasons
+    const response = await api.get<PaginatedApiResponse<Season>>(
+      `/films/${filmId}/seasons`,
+      { limit: firstResponse.totalItems, page: 1 }
+    );
+    
+    // Load episodes for each season
+    const seasonsWithEpisodes = await Promise.all(
+      response.data.map(async (season) => {
+        const episodes = await getEpisodes(filmId, season.number);
+        return { ...season, episodes };
+      })
+    );
+    
+    return seasonsWithEpisodes;
+  } catch (error) {
+    console.error("Error fetching seasons:", error);
+    return [];
+  }
+}
+
+export async function getEpisodes(
+  filmId: string,
+  seasonNumber: number
+): Promise<Episode[]> {
+  try {
+    // First call to get total count
+    const firstResponse = await api.get<PaginatedApiResponse<Episode>>(
+      `/films/${filmId}/seasons/${seasonNumber}/episodes`,
+      { limit: 1, page: 1 }
+    );
+    
+    if (firstResponse.totalItems === 0) {
+      return [];
+    }
+    
+    // Second call to get all episodes
+    const response = await api.get<PaginatedApiResponse<Episode>>(
+      `/films/${filmId}/seasons/${seasonNumber}/episodes`,
+      { limit: firstResponse.totalItems, page: 1 }
+    );
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching episodes:", error);
+    return [];
+  }
+}
+
+export async function createSeason(
+  filmId: string,
+  data: CreateSeasonDto
+): Promise<ActionResult<Season>> {
+  try {
+    const response = await api.post<ApiResponse<Season>>(
+      `/films/${filmId}/seasons`,
+      data
+    );
+    revalidatePath(`/movies/${filmId}/edit`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Error creating season:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function createEpisode(
+  filmId: string,
+  seasonNumber: number,
+  data: CreateEpisodeDto
+): Promise<ActionResult<Episode>> {
+  try {
+    const response = await api.post<ApiResponse<Episode>>(
+      `/films/${filmId}/seasons/${seasonNumber}/episodes`,
+      data
+    );
+    revalidatePath(`/movies/${filmId}/edit`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Error creating episode:", error);
     return {
       success: false,
       error: getErrorMessage(error),

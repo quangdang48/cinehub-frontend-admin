@@ -61,7 +61,7 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
             Tổng cộng {moviesData.totalItems} phim
           </p>
         </div>
-        <Link href="/movies/new">
+        <Link href="/movies/create">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
             Thêm phim mới

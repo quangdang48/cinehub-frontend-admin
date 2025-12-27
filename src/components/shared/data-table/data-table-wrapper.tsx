@@ -2,9 +2,7 @@
 
 import * as React from "react";
 import { Card } from "@/components/ui/card";
-import { DataTable, type Column } from "@/components/ui/data-table";
-import { DataTablePagination } from "@/components/ui/data-table";
-import { DataTableToolbar } from "@/components/ui/data-table";
+import { DataTable, type Column, DataTablePagination, DataTableToolbar } from "@/components/shared/data-table";
 import { Spinner } from "@/components/ui/spinner";
 import { PaginatedApiResponse } from "@/types/api";
 

@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import type { SortConfig } from "@/components/ui/data-table";
+import type { SortConfig } from "@/components/shared/data-table";
 
 interface UseDataTableProps {
   defaultPageSize?: number;
