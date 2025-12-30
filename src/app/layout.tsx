@@ -3,7 +3,7 @@ import { Geist, Geist_Mono, Nunito_Sans, Figtree } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
 
-const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
+const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' });
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         {children}
-         <Toaster position="top-right" />
+        <Toaster position="top-right" />
       </body>
     </html>
   );

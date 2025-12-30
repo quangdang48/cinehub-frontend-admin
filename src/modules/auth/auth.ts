@@ -94,11 +94,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (Date.now() < token.accessTokenExpires) {
         return token;
       }
-
-    //   // Token expired, try to refresh
-    //   return refreshAccessToken(token);
-    // Token expired, log out user
-      return {}
+      return refreshAccessToken(token);
     },
     async session({ session, token }) {
       if (token.error === "RefreshAccessTokenError") {

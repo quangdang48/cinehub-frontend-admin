@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button, Input, Label, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,10 +27,10 @@ export default function ForgotPasswordPage() {
     try {
       // TODO: Call forgot password API
       // await authService.forgotPassword(email);
-      
+
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      
+
       setSuccess(true);
     } catch (err) {
       setError("Có lỗi xảy ra. Vui lòng thử lại sau.");
@@ -86,7 +89,7 @@ export default function ForgotPasswordPage() {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="email" required>
+            <Label htmlFor="email">
               Email
             </Label>
             <Input
@@ -100,8 +103,8 @@ export default function ForgotPasswordPage() {
         </CardContent>
 
         <CardFooter className="flex flex-col gap-2">
-          <Button type="submit" className="w-full" isLoading={isLoading}>
-            Gửi hướng dẫn
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading ? "Đang gửi..." : "Gửi hướng dẫn"}
           </Button>
           <Link href="/login" className="text-sm text-muted-foreground hover:text-primary">
             Quay lại đăng nhập

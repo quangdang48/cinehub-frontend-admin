@@ -1,9 +1,28 @@
-export default function GenresPage() {
+import { Suspense } from "react";
+import { getGenres } from "@/modules/genres/actions";
+import { GenresPageClient } from "./page-client";
+import { Spinner } from "@/components/ui/spinner";
+
+interface GenresPageProps {
+  searchParams: Promise<{
+    page?: string;
+    limit?: string;
+  }>;
+}
+
+export default async function GenresPage({ searchParams }: GenresPageProps) {
+  const params = await searchParams;
+
+  const filters = {
+    page: params.page ? parseInt(params.page) : 1,
+    limit: params.limit ? parseInt(params.limit) : 10,
+  };
+
+  const genresData = await getGenres(filters);
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Quản lý thể loại</h1>
-      {/* TODO: Implement genres list, CRUD */}
-      <p className="text-muted-foreground">Danh sách thể loại - chưa triển khai</p>
-    </div>
+    <Suspense fallback={<Spinner />}>
+      <GenresPageClient data={genresData} />
+    </Suspense>
   );
 }

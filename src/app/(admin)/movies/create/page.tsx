@@ -1,6 +1,8 @@
 import { getGenres, getDirectors, getActors } from "@/modules/movies/actions";
 import { MovieMultiStepForm } from "@/modules/movies/components/movie-multi-step-form";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateMoviePage() {
   const [genres, directors, actors] = await Promise.all([
     getGenres(),
