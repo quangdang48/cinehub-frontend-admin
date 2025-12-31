@@ -9,12 +9,11 @@ declare module "next-auth" {
       name: string;
       gender: string;
       role: "admin" | "user";
-
-    };
+    } & DefaultSession["user"];
     accessToken: string;
     refreshToken: string;
     accessTokenExpires: number;
-    error?: "RefreshAccessTokenError";
+    error?: "RefreshAccessTokenError" | "TokenCorrupted";
   }
 
   interface User extends DefaultUser {
@@ -39,6 +38,6 @@ declare module "next-auth/jwt" {
     accessToken: string;
     refreshToken: string;
     accessTokenExpires: number;
-    error?: "RefreshAccessTokenError";
+    error?: "RefreshAccessTokenError" | "TokenCorrupted";
   }
 }

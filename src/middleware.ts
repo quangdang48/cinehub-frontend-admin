@@ -6,7 +6,7 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth;
 
   // Check if token has refresh error - force logout
-  if (req.auth?.error === "RefreshAccessTokenError") {
+  if (req.auth?.error === "RefreshAccessTokenError" || req.auth?.error === "TokenCorrupted") {
     const response = NextResponse.redirect(new URL("/login", nextUrl));
     // Clear session cookies
     response.cookies.delete("authjs.session-token");

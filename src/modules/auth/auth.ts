@@ -7,8 +7,13 @@ import type {
 import { api } from "@/lib/api-client";
 import { LoginResponseDto, RefreshTokenResponseDto } from "./types";
 
+function isTokenValid(token: any): token is { accessToken: string; accessTokenExpires: number; refreshToken: string } {
+  return !!token.accessToken && !!token.accessTokenExpires && !!token.refreshToken;
+}
+
 async function refreshAccessToken(token: any) {
   try {
+    console.log(token);  
     const response = await api.post<ApiResponse<RefreshTokenResponseDto>>(
       "/auth/refresh-token",
       {
@@ -91,14 +96,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return { ...token, ...session };
       }
 
+      if (!isTokenValid(token)) {
+        return {
+          ...token as any,
+          error: "TokenCorrupted",
+        };
+      }
+
       if (Date.now() < token.accessTokenExpires) {
         return token;
       }
       return refreshAccessToken(token);
     },
     async session({ session, token }) {
-      if (token.error === "RefreshAccessTokenError") {
-        session.error = "RefreshAccessTokenError";
+      if (token.error === "TokenCorrupted" || token.error === "RefreshAccessTokenError") {
+        session.error = token.error;
       }
       session.user = {
         ...session.user,
