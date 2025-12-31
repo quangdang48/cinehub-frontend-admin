@@ -9,8 +9,9 @@ export default auth((req) => {
   if (req.auth?.error === "RefreshAccessTokenError" || req.auth?.error === "TokenCorrupted") {
     const response = NextResponse.redirect(new URL("/login", nextUrl));
     // Clear session cookies
-    response.cookies.delete("authjs.session-token");
-    response.cookies.delete("__Secure-authjs.session-token");
+    response.cookies.delete("__Secure-authjs.session-token")
+    response.cookies.delete("authjs.session-token")
+    response.cookies.delete("next-auth.session-token")
     return response;
   }
 
@@ -19,14 +20,10 @@ export default auth((req) => {
     "/dashboard",
     "/movies",
     "/users",
-    "/categories",
+    "/admins",
     "/genres",
-    "/banners",
     "/plans",
-    "/transactions",
     "/comments",
-    "/reports",
-    "/settings",
   ];
 
   // Auth routes (login, forgot-password)

@@ -5,6 +5,7 @@ export const SIDEBAR_ITEMS = [
   { title: 'Thể loại', href: '/genres', icon: 'Tags' },
   { title: 'Gói dịch vụ', href: '/plans', icon: 'CreditCard' },
   { title: 'Người dùng', href: '/users', icon: 'Users' },
+  { title: 'Quản trị viên', href: '/admins', icon: 'Admins' },
   { title: 'Giao dịch', href: '/transactions', icon: 'Receipt' },
   { title: 'Bình luận', href: '/comments', icon: 'MessageSquare' },
   { title: 'Cài đặt', href: '/settings', icon: 'Settings' },

@@ -15,7 +15,7 @@ export async function getPlans(
             limit: filters.limit || 10,
         };
 
-        const response = await api.get<PaginatedApiResponse<Plan>>("/v1/plans", params);
+        const response = await api.get<PaginatedApiResponse<Plan>>("/plans/active", params);
         return response;
     } catch (error) {
         console.error("Error fetching plans:", error);
@@ -34,7 +34,7 @@ export async function getPlans(
 
 export async function getActivePlans(): Promise<Plan[]> {
     try {
-        const response = await api.get<ApiResponse<Plan[]>>("/v1/plans/active");
+        const response = await api.get<ApiResponse<Plan[]>>("plans/active");
         return response.data;
     } catch (error) {
         console.error("Error fetching active plans:", error);
@@ -44,7 +44,7 @@ export async function getActivePlans(): Promise<Plan[]> {
 
 export async function getPlanById(id: string): Promise<Plan | null> {
     try {
-        const response = await api.get<ApiResponse<Plan>>(`/v1/plans/${id}`);
+        const response = await api.get<ApiResponse<Plan>>(`plans/${id}`);
         return response.data;
     } catch (error) {
         console.error("Error fetching plan:", error);
@@ -56,7 +56,7 @@ export async function createPlan(
     data: CreatePlanDto
 ): Promise<ActionResult<Plan>> {
     try {
-        const response = await api.post<ApiResponse<Plan>>("/v1/plans", data);
+        const response = await api.post<ApiResponse<Plan>>("plans", data);
         revalidatePath("/plans");
         return {
             success: true,
@@ -76,7 +76,7 @@ export async function updatePlan(
     data: UpdatePlanDto
 ): Promise<ActionResult<Plan>> {
     try {
-        const response = await api.put<ApiResponse<Plan>>(`/v1/plans/${id}`, data);
+        const response = await api.put<ApiResponse<Plan>>(`plans/${id}`, data);
         revalidatePath("/plans");
         return {
             success: true,
@@ -109,7 +109,7 @@ export async function deletePlan(id: string): Promise<ActionResult> {
 
 export async function togglePlanActive(id: string): Promise<ActionResult<Plan>> {
     try {
-        const response = await api.put<ApiResponse<Plan>>(`/v1/plans/${id}/toggle-active`, {});
+        const response = await api.put<ApiResponse<Plan>>(`plans/${id}/toggle-active`, {});
         revalidatePath("/plans");
         return {
             success: true,

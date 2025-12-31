@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 import { Search, X } from "lucide-react";
 import { type Genre } from "../types";
 import { typeOptions, statusOptions, ageLimitOptions } from "../const";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface MovieFiltersProps {
   genres: Genre[];
@@ -28,6 +29,8 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
   const [isPending, startTransition] = useTransition();
 
   const [search, setSearch] = useState(searchParams.get("search") || "");
+  const debouncedSearch = useDebounce(search, 500);
+  const isFirstRender = useRef(true);
 
   const currentFilters = {
     status: searchParams.get("status") || "",
@@ -44,6 +47,30 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
     currentFilters.genreId ||
     currentFilters.country ||
     search;
+
+  useEffect(() => {
+    // Skip first render to prevent initial navigation
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    startTransition(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      
+      if (!debouncedSearch) {
+        params.delete("search");
+      } else {
+        params.set("search", debouncedSearch);
+      }
+      
+      // Reset to page 1 when search changes
+      params.set("page", "1");
+      
+      router.push(`/movies?${params.toString()}`);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   const updateFilter = (key: string, value: string) => {
     startTransition(() => {
@@ -62,16 +89,6 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
     });
   };
 
-  const handleSearch = () => {
-    updateFilter("search", search);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
-
   const clearFilters = () => {
     setSearch("");
     startTransition(() => {
@@ -84,20 +101,14 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
       {/* Search and quick filters */}
       <div className="flex flex-wrap gap-4">
         {/* Search input */}
-        <div className="flex flex-1 min-w-50 gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Tìm kiếm phim..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleKeyDown}
-              className="pl-9"
-            />
-          </div>
-          <Button onClick={handleSearch} disabled={isPending}>
-            Tìm
-          </Button>
+        <div className="relative flex-1 min-w-50">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Tìm kiếm phim..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
         </div>
 
         {/* Status filter */}
@@ -197,10 +208,7 @@ export function MovieFilters({ genres }: MovieFiltersProps) {
             <Badge variant="secondary">
               Tìm kiếm: {search}
               <button
-                onClick={() => {
-                  setSearch("");
-                  updateFilter("search", "");
-                }}
+                onClick={() => setSearch("")}
                 className="ml-1 hover:text-foreground"
               >
                 <X className="h-3 w-3" />

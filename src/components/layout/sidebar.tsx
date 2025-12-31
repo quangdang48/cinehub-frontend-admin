@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_ITEMS } from "@/constants";
-import { BarChart3, CreditCard, Film, LayoutDashboard, MessageSquare, Receipt, Settings, Tags, Users } from "lucide-react";
+import { BarChart3, CreditCard, Film, LayoutDashboard, MessageSquare, Receipt, Settings, Tags, Users, Shield } from "lucide-react";
 
 // Icons mapping
 const icons: Record<string, React.ReactNode> = {
@@ -17,6 +17,7 @@ const icons: Record<string, React.ReactNode> = {
   BarChart3: <BarChart3 className="h-5 w-5" />,
   MessageSquare: <MessageSquare className="h-5 w-5" />,
   Settings: <Settings className="h-5 w-5" />,
+  Admins: <Shield className="h-5 w-5" />,
 };
 
 interface SidebarProps {
