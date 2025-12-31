@@ -51,7 +51,7 @@ export function GenreTable({ data, onEdit }: GenreTableProps) {
         toggleColumn,
     } = useDataTable({
         defaultPageSize: 10,
-        defaultVisibleColumns: ["name", "createdAt", "updatedAt", "actions"],
+        defaultVisibleColumns: ["name", "slug", "createdAt", "updatedAt", "actions"],
         baseUrl: "/genres",
     });
 
@@ -90,6 +90,15 @@ export function GenreTable({ data, onEdit }: GenreTableProps) {
             hideable: false,
             render: (genre: Genre) => (
                 <span className="font-medium">{genre.name}</span>
+            ),
+        },
+        {
+            key: "slug",
+            title: "Slug",
+            sortable: true,
+            hideable: true,
+            render: (genre: Genre) => (
+                <span className="text-muted-foreground">{genre.slug}</span>
             ),
         },
         {

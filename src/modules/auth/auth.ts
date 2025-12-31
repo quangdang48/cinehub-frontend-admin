@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { ACCESS_TOKEN_EXPIRES_IN, authConfig } from "@/config";
+import { ACCESS_TOKEN_EXPIRES_IN, API_URL, authConfig } from "@/config";
 import type {
   ApiResponse,
 } from "@/types/api";
@@ -13,24 +13,24 @@ function isTokenValid(token: any): token is { accessToken: string; accessTokenEx
 
 async function refreshAccessToken(token: any) {
   try {
-    console.log(token);  
-    const response = await api.post<ApiResponse<RefreshTokenResponseDto>>(
-      "/auth/refresh-token",
-      {
-        refreshToken: token.refreshToken,
-      }
-    );
-    const refreshedTokens = response.data;
-
+    const response = await fetch(API_URL + "/auth/refresh-token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        token: token.refreshToken,
+      }),
+    });
+    const res = await response.json() as ApiResponse<RefreshTokenResponseDto>;
     return {
       ...token,
-      accessToken: refreshedTokens.accessToken,
-      refreshToken: refreshedTokens.refreshToken,
+      accessToken: res.data.accessToken,
+      refreshToken: res.data.refreshToken,
       accessTokenExpires: Date.now() + ACCESS_TOKEN_EXPIRES_IN,
     };
   } catch (error) {
     return {
-      ...token,
       error: "RefreshAccessTokenError" as const,
     };
   }
@@ -98,7 +98,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       if (!isTokenValid(token)) {
         return {
-          ...token as any,
           error: "TokenCorrupted",
         };
       }

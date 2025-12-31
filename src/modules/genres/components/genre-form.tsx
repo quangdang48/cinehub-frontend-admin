@@ -19,6 +19,7 @@ import type { Genre } from "../types";
 
 interface GenreFormData {
     name: string;
+    slug: string;
 }
 
 interface GenreFormProps {
@@ -36,16 +37,45 @@ export function GenreForm({ open, onOpenChange, genre, onSuccess }: GenreFormPro
         register,
         handleSubmit,
         reset,
+        setValue,
+        watch,
         formState: { errors },
     } = useForm<GenreFormData>({
         defaultValues: {
             name: genre?.name || "",
+            slug: genre?.slug || "",
         },
     });
 
+    const nameValue = watch("name");
+
+    useEffect(() => {
+        if (!nameValue) {
+            setValue("slug", "");
+            return;
+        }
+
+        const slug = nameValue
+            .toLowerCase()
+            .replace(/đ/g, "d")
+            .replace(/Đ/g, "D")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, "-")
+            .replace(/[^\w\-]+/g, "")
+            .replace(/\-\-+/g, "-")
+            .replace(/^-+/, "")
+            .replace(/-+$/, "");
+        
+        setValue("slug", slug);
+    }, [nameValue, setValue]);
+
     useEffect(() => {
         if (open) {
-            reset({ name: genre?.name || "" });
+            reset({ 
+                name: genre?.name || "",
+                slug: genre?.slug || ""
+            });
         }
     }, [open, genre, reset]);
 
@@ -75,7 +105,7 @@ export function GenreForm({ open, onOpenChange, genre, onSuccess }: GenreFormPro
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-106.25">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? "Chỉnh sửa thể loại" : "Thêm thể loại mới"}
@@ -98,6 +128,15 @@ export function GenreForm({ open, onOpenChange, genre, onSuccess }: GenreFormPro
                             {errors.name && (
                                 <p className="text-sm text-red-500">{errors.name.message}</p>
                             )}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="slug">Slug</Label>
+                            <Input
+                                id="slug"
+                                disabled
+                                placeholder="Slug sẽ được tạo tự động..."
+                                {...register("slug")}
+                            />
                         </div>
                     </div>
                     <DialogFooter>

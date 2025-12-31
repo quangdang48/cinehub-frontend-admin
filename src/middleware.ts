@@ -1,21 +1,31 @@
-import { auth } from "@/modules/auth"
+import { auth } from "@/modules/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
+  
+  const authRoutes = ["/login", "/forgot-password"];
+  const isAuthRoute = authRoutes.some((route) =>
+    nextUrl.pathname.startsWith(route)
+  );
 
-  // Check if token has refresh error - force logout
   if (req.auth?.error === "RefreshAccessTokenError" || req.auth?.error === "TokenCorrupted") {
+    if (isAuthRoute) {
+      const response = NextResponse.next();
+      response.cookies.delete("authjs.session-token");
+      response.cookies.delete("__Secure-authjs.session-token");
+      response.cookies.delete("next-auth.session-token");
+      return response;
+    }
+
     const response = NextResponse.redirect(new URL("/login", nextUrl));
-    // Clear session cookies
-    response.cookies.delete("__Secure-authjs.session-token")
-    response.cookies.delete("authjs.session-token")
-    response.cookies.delete("next-auth.session-token")
+    response.cookies.delete("authjs.session-token");
+    response.cookies.delete("__Secure-authjs.session-token");
+    response.cookies.delete("next-auth.session-token");
     return response;
   }
 
-  // Protected routes that require authentication
   const protectedRoutes = [
     "/dashboard",
     "/movies",
@@ -26,18 +36,10 @@ export default auth((req) => {
     "/comments",
   ];
 
-  // Auth routes (login, forgot-password)
-  const authRoutes = ["/login", "/forgot-password"];
-
   const isProtectedRoute = protectedRoutes.some((route) =>
     nextUrl.pathname.startsWith(route)
   );
 
-  const isAuthRoute = authRoutes.some((route) =>
-    nextUrl.pathname.startsWith(route)
-  );
-
-  // Redirect to login if accessing protected route without auth
   if (isProtectedRoute && !isLoggedIn) {
     const callbackUrl = encodeURIComponent(nextUrl.pathname + nextUrl.search);
     return NextResponse.redirect(
@@ -45,12 +47,10 @@ export default auth((req) => {
     );
   }
 
-  // Redirect to dashboard if logged in user tries to access auth routes
   if (isAuthRoute && isLoggedIn) {
     return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
 
-  // Redirect root to dashboard if logged in, otherwise to login
   if (nextUrl.pathname === "/") {
     if (isLoggedIn) {
       return NextResponse.redirect(new URL("/dashboard", nextUrl));
