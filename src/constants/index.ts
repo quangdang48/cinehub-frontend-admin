@@ -10,6 +10,7 @@ export const SIDEBAR_ITEMS = [
   { title: 'Quản trị viên', href: '/admins', icon: 'Admins' },
   { title: 'Giao dịch', href: '/transactions', icon: 'Receipt' },
   { title: 'Bình luận', href: '/comments', icon: 'MessageSquare' },
+  { title: 'Thông báo', href: '/notifications', icon: 'Bell' },
   { title: 'Cài đặt', href: '/settings', icon: 'Settings' },
 ] as const;
 
