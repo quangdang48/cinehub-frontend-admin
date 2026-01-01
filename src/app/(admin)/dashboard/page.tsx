@@ -1,7 +1,13 @@
 import { Suspense } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Film, DollarSign, TrendingUp, Eye } from "lucide-react";
+import { DashboardClient } from "./dashboard-client";
 
 // Mock data - Replace with actual API calls
 async function getDashboardStats() {
@@ -15,44 +21,76 @@ async function getDashboardStats() {
   };
 }
 
-function StatCard({
-  title,
-  value,
-  icon: Icon,
-  trend,
-  trendValue,
-}: {
-  title: string;
-  value: string | number;
-  icon: any;
-  trend?: "up" | "down";
-  trendValue?: string;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value.toLocaleString()}</div>
-        {trendValue && (
-          <p
-            className={`text-xs ${
-              trend === "up" ? "text-green-600" : "text-red-600"
-            } mt-1`}
-          >
-            {trend === "up" ? "↑" : "↓"} {trendValue}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
+// Dữ liệu biểu đồ doanh thu theo tháng
+function getRevenueData() {
+  return [
+    { month: "T1", revenue: 45000, users: 1200 },
+    { month: "T2", revenue: 52000, users: 1350 },
+    { month: "T3", revenue: 48000, users: 1280 },
+    { month: "T4", revenue: 61000, users: 1450 },
+    { month: "T5", revenue: 55000, users: 1380 },
+    { month: "T6", revenue: 67000, users: 1520 },
+    { month: "T7", revenue: 72000, users: 1680 },
+    { month: "T8", revenue: 78000, users: 1750 },
+    { month: "T9", revenue: 82000, users: 1890 },
+    { month: "T10", revenue: 95000, users: 2100 },
+    { month: "T11", revenue: 110000, users: 2350 },
+    { month: "T12", revenue: 125430, users: 2543 },
+  ];
+}
+
+// Dữ liệu người dùng mới theo tuần
+function getNewUsersData() {
+  return [
+    { week: "Tuần 1", newUsers: 245, activeUsers: 890 },
+    { week: "Tuần 2", newUsers: 312, activeUsers: 920 },
+    { week: "Tuần 3", newUsers: 287, activeUsers: 950 },
+    { week: "Tuần 4", newUsers: 356, activeUsers: 1020 },
+    { week: "Tuần 5", newUsers: 398, activeUsers: 1100 },
+    { week: "Tuần 6", newUsers: 423, activeUsers: 1180 },
+  ];
+}
+
+// Dữ liệu phân bố gói đăng ký
+function getSubscriptionData() {
+  return [
+    { name: "Cơ bản", value: 3500, fill: "#3b82f6" },    // blue-500
+    { name: "Tiêu chuẩn", value: 2800, fill: "#8b5cf6" }, // violet-500
+    { name: "Cao cấp", value: 1934, fill: "#f59e0b" },    // amber-500
+  ];
+}
+
+// Dữ liệu lượt xem theo ngày (7 ngày gần nhất)
+function getViewsData() {
+  return [
+    { day: "Thứ 2", views: 45230, movies: 120 },
+    { day: "Thứ 3", views: 52340, movies: 145 },
+    { day: "Thứ 4", views: 48900, movies: 132 },
+    { day: "Thứ 5", views: 61200, movies: 168 },
+    { day: "Thứ 6", views: 78500, movies: 210 },
+    { day: "Thứ 7", views: 95600, movies: 285 },
+    { day: "CN", views: 102300, movies: 312 },
+  ];
+}
+
+// Dữ liệu thể loại phim phổ biến
+function getGenreData() {
+  return [
+    { genre: "Hành động", count: 450 },
+    { genre: "Hài", count: 380 },
+    { genre: "Tình cảm", count: 320 },
+    { genre: "Kinh dị", count: 280 },
+    { genre: "Khoa học", count: 240 },
+    { genre: "Hoạt hình", count: 200 },
+  ];
 }
 
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
+      <div className="h-10 w-64">
+        <Skeleton className="h-full w-full" />
+      </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
           <Card key={i}>
@@ -73,75 +111,14 @@ async function DashboardContent() {
   const stats = await getDashboardStats();
 
   return (
-    <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Tổng người dùng"
-          value={stats.totalUsers}
-          icon={Users}
-          trend="up"
-          trendValue="+12% so với tháng trước"
-        />
-        <StatCard
-          title="Tổng phim"
-          value={stats.totalMovies}
-          icon={Film}
-          trend="up"
-          trendValue="+18 phim mới"
-        />
-        <StatCard
-          title="Doanh thu"
-          value={`$${stats.revenue.toLocaleString()}`}
-          icon={DollarSign}
-          trend="up"
-          trendValue="+23% so với tháng trước"
-        />
-        <StatCard
-          title="Gói đăng ký hoạt động"
-          value={stats.activeSubscriptions}
-          icon={TrendingUp}
-          trend="up"
-          trendValue="+15%"
-        />
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
-              Lượt xem
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {stats.totalViews.toLocaleString()}
-            </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Tổng lượt xem trên toàn bộ nền tảng
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Người dùng mới hôm nay
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">
-              {stats.newUsersToday.toLocaleString()}
-            </div>
-            <p className="text-sm text-muted-foreground mt-2">
-              Người dùng đăng ký trong 24h qua
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <DashboardClient
+      stats={stats}
+      revenueData={getRevenueData()}
+      newUsersData={getNewUsersData()}
+      subscriptionData={getSubscriptionData()}
+      viewsData={getViewsData()}
+      genreData={getGenreData()}
+    />
   );
 }
 
