@@ -3,6 +3,8 @@ export const SIDEBAR_ITEMS = [
   { title: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
   { title: 'Quản lý phim', href: '/movies', icon: 'Film' },
   { title: 'Thể loại', href: '/genres', icon: 'Tags' },
+  { title: 'Diễn viên', href: '/actors', icon: 'UserCircle' },
+  { title: 'Đạo diễn', href: '/directors', icon: 'Clapperboard' },
   { title: 'Gói dịch vụ', href: '/plans', icon: 'CreditCard' },
   { title: 'Người dùng', href: '/users', icon: 'Users' },
   { title: 'Quản trị viên', href: '/admins', icon: 'Admins' },

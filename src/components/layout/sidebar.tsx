@@ -4,13 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SIDEBAR_ITEMS } from "@/constants";
-import { BarChart3, CreditCard, Film, LayoutDashboard, MessageSquare, Receipt, Settings, Tags, Users, Shield } from "lucide-react";
+import { BarChart3, Clapperboard, CreditCard, Film, LayoutDashboard, MessageSquare, Receipt, Settings, Tags, UserCircle, Users, Shield } from "lucide-react";
 
 // Icons mapping
 const icons: Record<string, React.ReactNode> = {
   LayoutDashboard: <LayoutDashboard className="h-5 w-5" />,
   Film: <Film className="h-5 w-5" />,
   Tags: <Tags className="h-5 w-5" />,
+  UserCircle: <UserCircle className="h-5 w-5" />,
+  Clapperboard: <Clapperboard className="h-5 w-5" />,
   Receipt: <Receipt className="h-5 w-5" />,
   CreditCard: <CreditCard className="h-5 w-5" />,
   Users: <Users className="h-5 w-5" />,
