@@ -1,8 +1,27 @@
+import { User } from "../users";
+
 export interface CommentAuthor {
     id: string;
     name: string;
     email: string;
     avatar?: string;
+}
+
+export enum ReportReason {
+    SPAM = 'SPAM',
+    INAPPROPRIATE_CONTENT = 'INAPPROPRIATE_CONTENT',
+    HARASSMENT = 'HARASSMENT',
+    HATE_SPEECH = 'HATE_SPEECH',
+    OTHER = 'OTHER',
+}
+
+export interface CommentReport {
+    id: string;
+    reason: ReportReason;
+    description?: string;
+    user: User;
+    commentId: string;
+    createdAt: string;
 }
 
 export interface Comment {
@@ -17,6 +36,8 @@ export interface Comment {
     author: CommentAuthor;
     createdAt: string;
     updatedAt: string;
+    reports: CommentReport[];
+    isReported: boolean;
 }
 
 export interface CommentFilters {

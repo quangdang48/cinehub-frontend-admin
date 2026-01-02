@@ -148,7 +148,7 @@ export function NotificationTester() {
           </Button>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[300px] pr-4">
+          <ScrollArea className="h-75 pr-4">
             {notifications.length === 0 ? (
               <p className="text-center text-muted-foreground py-8">
                 No notifications yet...

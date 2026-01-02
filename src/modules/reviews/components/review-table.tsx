@@ -11,14 +11,6 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -28,26 +20,28 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, Trash2, ThumbsUp, ThumbsDown, MessageSquare, AlertTriangle } from "lucide-react";
-import { deleteComment } from "../actions";
-import type { Comment, CommentReport } from "../types";
+import { MoreHorizontal, Trash2, ThumbsUp, ThumbsDown, MessageSquare, Star, AlertTriangle } from "lucide-react";
+import { deleteReview } from "../actions";
+import type { Review, ReviewReport } from "../types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTableWrapper, type Column } from "@/components/shared/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
 import { PaginatedApiResponse } from "@/types/api";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-interface CommentTableProps {
-    data: PaginatedApiResponse<Comment>;
+interface ReviewTableProps {
+    data: PaginatedApiResponse<Review>;
 }
 
-export function CommentTable({ data }: CommentTableProps) {
+export function ReviewTable({ data }: ReviewTableProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [selectedComment, setSelectedComment] = useState<Comment | null>(null);
     const [reportDialogOpen, setReportDialogOpen] = useState(false);
+    const [selectedReview, setSelectedReview] = useState<Review | null>(null);
 
     const {
         currentPage,
@@ -60,34 +54,34 @@ export function CommentTable({ data }: CommentTableProps) {
         toggleColumn,
     } = useDataTable({
         defaultPageSize: 10,
-        defaultVisibleColumns: ["author", "content", "stats", "reports", "episode", "createdAt", "actions"],
-        baseUrl: "/comments",
+        defaultVisibleColumns: ["author", "content", "rating", "stats", "reports", "createdAt", "actions"],
+        baseUrl: "/reviews",
     });
 
     const handleDelete = async () => {
-        if (!selectedComment) return;
+        if (!selectedReview) return;
 
         startTransition(async () => {
-            const result = await deleteComment(selectedComment.id);
+            const result = await deleteReview(selectedReview.id);
 
             if (result.success) {
-                toast.success("Xóa bình luận thành công");
+                toast.success("Xóa đánh giá thành công");
                 setDeleteDialogOpen(false);
-                setSelectedComment(null);
+                setSelectedReview(null);
                 router.refresh();
             } else {
-                toast.error(result.error || "Không thể xóa bình luận");
+                toast.error(result.error || "Không thể xóa đánh giá");
             }
         });
     };
 
-    const openDeleteDialog = (comment: Comment) => {
-        setSelectedComment(comment);
+    const openDeleteDialog = (review: Review) => {
+        setSelectedReview(review);
         setDeleteDialogOpen(true);
     };
 
-    const openReportDialog = (comment: Comment) => {
-        setSelectedComment(comment);
+    const openReportDialog = (review: Review) => {
+        setSelectedReview(review);
         setReportDialogOpen(true);
     };
 
@@ -105,20 +99,20 @@ export function CommentTable({ data }: CommentTableProps) {
             .slice(0, 2);
     };
 
-    const columns: Column<Comment>[] = [
+    const columns: Column<Review>[] = [
         {
             key: "author",
             title: "Người dùng",
             hideable: false,
-            render: (comment: Comment) => (
+            render: (review: Review) => (
                 <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={comment.author.avatar} />
-                        <AvatarFallback>{getInitials(comment.author.name)}</AvatarFallback>
+                        <AvatarImage src={review.author.avatar} />
+                        <AvatarFallback>{getInitials(review.author.name)}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <p className="font-medium text-sm">{comment.author.name}</p>
-                        <p className="text-xs text-muted-foreground">{comment.author.email}</p>
+                        <p className="font-medium text-sm">{review.author.name}</p>
+                        <p className="text-xs text-muted-foreground">{review.author.email}</p>
                     </div>
                 </div>
             ),
@@ -127,14 +121,20 @@ export function CommentTable({ data }: CommentTableProps) {
             key: "content",
             title: "Nội dung",
             hideable: false,
-            render: (comment: Comment) => (
+            render: (review: Review) => (
                 <div className="max-w-md">
-                    <p className="text-sm line-clamp-2">{comment.content}</p>
-                    {comment.parentId && (
-                        <Badge variant="outline" className="mt-1 text-xs">
-                            Trả lời
-                        </Badge>
-                    )}
+                    <p className="text-sm line-clamp-2">{review.content}</p>
+                </div>
+            ),
+        },
+        {
+            key: "rating",
+            title: "Đánh giá",
+            sortable: true,
+            render: (review: Review) => (
+                <div className="flex items-center gap-1">
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-medium">{review.rating}</span>
                 </div>
             ),
         },
@@ -142,19 +142,19 @@ export function CommentTable({ data }: CommentTableProps) {
             key: "stats",
             title: "Tương tác",
             hideable: true,
-            render: (comment: Comment) => (
+            render: (review: Review) => (
                 <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                         <ThumbsUp className="h-3.5 w-3.5" />
-                        {comment.totalLikes}
+                        {review.totalLikes}
                     </span>
                     <span className="flex items-center gap-1">
                         <ThumbsDown className="h-3.5 w-3.5" />
-                        {comment.totalDislikes}
+                        {review.totalDislikes}
                     </span>
                     <span className="flex items-center gap-1">
                         <MessageSquare className="h-3.5 w-3.5" />
-                        {comment.totalReplies}
+                        {review.totalComments}
                     </span>
                 </div>
             ),
@@ -163,14 +163,14 @@ export function CommentTable({ data }: CommentTableProps) {
             key: "reports",
             title: "Báo cáo",
             sortable: true,
-            render: (comment: Comment) => (
-                comment.isReported ? (
+            render: (review: Review) => (
+                review.isReported ? (
                     <Badge 
                         variant="destructive"
-                        className="cursor-pointer hover:bg-destructive/30"
-                        onClick={() => openReportDialog(comment)}
+                        className="cursor-pointer hover:bg-destructive/80"
+                        onClick={() => openReportDialog(review)}
                     >
-                        {comment.reports.length} báo cáo
+                        {review.reports.length} báo cáo
                     </Badge>
                 ) : (
                     <Badge variant="outline" className="text-green-600 border-green-600">
@@ -180,55 +180,33 @@ export function CommentTable({ data }: CommentTableProps) {
             ),
         },
         {
-            key: "episode",
-            title: "Mùa/Tập",
-            hideable: true,
-            render: (comment: Comment) => (
-                <span className="text-sm text-muted-foreground">
-                    {comment.season && comment.episode
-                        ? `S${comment.season}E${comment.episode}`
-                        : "-"}
-                </span>
-            ),
-        },
-        {
             key: "createdAt",
-            title: "Thời gian",
+            title: "Ngày tạo",
             sortable: true,
-            hideable: true,
-            render: (comment: Comment) => (
+            render: (review: Review) => (
                 <span className="text-sm text-muted-foreground">
-                    {formatDate(comment.createdAt)}
+                    {formatDate(review.createdAt)}
                 </span>
             ),
         },
         {
             key: "actions",
-            title: "",
-            className: "w-[70px]",
-            hideable: false,
-            render: (comment: Comment) => (
-                <DropdownMenu modal={false}>
+            title: "Thao tác",
+            render: (review: Review) => (
+                <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => e.stopPropagation()}
-                        >
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Mở menu</span>
                             <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                            className="text-red-600"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                openDeleteDialog(comment);
-                            }}
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => openDeleteDialog(review)}
                         >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Xóa bình luận
+                            Xóa đánh giá
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
@@ -239,8 +217,8 @@ export function CommentTable({ data }: CommentTableProps) {
     return (
         <>
             <DataTableWrapper
-                data={data}
                 columns={columns}
+                data={data}
                 currentPage={currentPage}
                 pageSize={pageSize}
                 onPageChange={handlePageChange}
@@ -249,7 +227,6 @@ export function CommentTable({ data }: CommentTableProps) {
                 onSort={handleSort}
                 visibleColumns={visibleColumns}
                 onToggleColumn={toggleColumn}
-                emptyMessage="Không có bình luận nào"
                 isLoading={isPending}
             />
 
@@ -258,16 +235,14 @@ export function CommentTable({ data }: CommentTableProps) {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Bạn có chắc chắn muốn xóa?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Hành động này sẽ xóa vĩnh viễn bình luận của{" "}
-                            {selectedComment?.author.name}. Không thể hoàn tác sau khi xóa.
+                            Hành động này không thể hoàn tác. Đánh giá này sẽ bị xóa vĩnh viễn khỏi hệ thống.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isPending}>Hủy</AlertDialogCancel>
+                        <AlertDialogCancel>Hủy</AlertDialogCancel>
                         <AlertDialogAction
                             onClick={handleDelete}
-                            disabled={isPending}
-                            className="bg-red-600 hover:bg-red-700"
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                             {isPending ? "Đang xóa..." : "Xóa"}
                         </AlertDialogAction>
@@ -284,7 +259,7 @@ export function CommentTable({ data }: CommentTableProps) {
                     </DialogHeader>
                     <ScrollArea className="max-h-[60vh]">
                         <div className="space-y-4 p-1">
-                            {selectedComment?.reports.map((report: CommentReport) => (
+                            {selectedReview?.reports.map((report: ReviewReport) => (
                                 <div key={report.id} className="rounded-lg border p-4">
                                     <div className="flex items-center justify-between mb-2">
                                         <Badge variant="outline" className="font-medium">
@@ -305,23 +280,12 @@ export function CommentTable({ data }: CommentTableProps) {
                                     </div>
                                 </div>
                             ))}
-                            {selectedComment?.reports.length === 0 && (
+                            {selectedReview?.reports.length === 0 && (
                                 <p className="text-center text-muted-foreground py-4">
                                     Không có báo cáo nào
                                 </p>
                             )}
                         </div>
-                        <Button
-                            variant={'destructive'}
-                            className="mt-2 w-auto"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                openDeleteDialog(selectedComment!);
-                            }}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Xóa bình luận
-                        </Button>
                     </ScrollArea>
                 </DialogContent>
             </Dialog>
