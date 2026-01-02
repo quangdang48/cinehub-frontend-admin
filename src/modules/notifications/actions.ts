@@ -188,6 +188,46 @@ export async function sendNotification(data: SendNotificationRequest) {
   }
 }
 
+/**
+ * Broadcast notification to all users via WebSocket (for client users)
+ */
+export async function broadcastToAllUsers(
+  data: Omit<SendNotificationRequest, 'userId' | 'clientId'>
+) {
+  try {
+    const session = await auth();
+    const token = session?.accessToken;
+
+    const response = await fetch(
+      `${API_URL}/admin/notifications/broadcast-to-all`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(data),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error: ${response.status}`);
+    }
+
+    return { success: true, message: 'Broadcast đến tất cả users thành công' };
+  } catch (error) {
+    console.error('Failed to broadcast to all users:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: 'Broadcast thất bại' };
+  }
+}
+
+/**
+ * Broadcast notification via SSE (for admin clients - internal use)
+ */
 export async function broadcastNotification(
   data: Omit<SendNotificationRequest, 'userId'>
 ) {
@@ -353,5 +393,54 @@ export async function sendNotificationToUser(
       return { success: false, message: error.message };
     }
     return { success: false, message: 'Gửi thông báo đến user thất bại' };
+  }
+}
+
+/**
+ * Send notification to multiple users via WebSocket (group notification)
+ */
+export async function sendNotificationToUsers(
+  userIds: string[],
+  data: SendUserNotificationData
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const session = await auth();
+    const token = session?.accessToken;
+
+    const response = await fetch(
+      `${API_URL}/admin/notifications/send-to-users`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          userIds,
+          title: data.title,
+          message: data.message,
+          type: data.type,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return {
+      success: true,
+      message:
+        result.message ||
+        `Gửi thông báo đến ${userIds.length} users thành công`,
+    };
+  } catch (error) {
+    console.error('Failed to send notification to users:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: 'Gửi thông báo đến nhóm users thất bại' };
   }
 }

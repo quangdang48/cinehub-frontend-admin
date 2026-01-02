@@ -56,11 +56,32 @@ export function NotificationHistoryTable({
     {
       key: "targetUser",
       title: "Người nhận",
-      render: (item) => (
-        <span>
-          {item.targetUser ? item.targetUser.name || item.targetUser.email : "Tất cả (Broadcast)"}
-        </span>
-      ),
+      render: (item) => {
+        // Handle new schema with targetType and targetUsers array
+        if (item.targetType === 'broadcast') {
+          return <span className="text-muted-foreground">Tất cả (Broadcast)</span>;
+        }
+
+        // Check targetUsers array first (new schema)
+        if (item.targetUsers && item.targetUsers.length > 0) {
+          if (item.targetUsers.length === 1) {
+            return <span>{item.targetUsers[0].name || item.targetUsers[0].email || 'Unknown'}</span>;
+          }
+          // Multiple users (group notification)
+          return (
+            <span title={item.targetUsers.map(u => u.name).join(', ')}>
+              {item.targetUsers.length} người dùng
+            </span>
+          );
+        }
+
+        // Fallback to legacy targetUser field
+        if (item.targetUser) {
+          return <span>{item.targetUser.name || item.targetUser.email || 'Unknown'}</span>;
+        }
+
+        return <span className="text-muted-foreground">Tất cả (Broadcast)</span>;
+      },
     },
     {
       key: "createdAt",

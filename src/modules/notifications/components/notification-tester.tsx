@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useNotifications } from "@/providers/notification-provider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { NotificationSender } from "./notification-sender";
-import { ConnectedClientsList } from "./connected-clients-list";
 
 export function NotificationTester() {
   const { 
@@ -20,11 +18,9 @@ export function NotificationTester() {
     clearNotifications 
   } = useNotifications();
 
-  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(undefined);
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left Column: Connection Status & Connected Clients */}
+      {/* Left Column: Connection Status */}
       <div className="space-y-6 lg:col-span-1">
         <Card>
           <CardHeader>
@@ -68,19 +64,11 @@ export function NotificationTester() {
             </div>
           </CardContent>
         </Card>
-
-        <ConnectedClientsList 
-          onSelectClient={setSelectedClientId} 
-          selectedClientId={selectedClientId}
-        />
       </div>
 
       {/* Right Column: Sender & Received Log */}
       <div className="space-y-6 lg:col-span-2">
-        <NotificationSender 
-          selectedClientId={selectedClientId} 
-          onClearClient={() => setSelectedClientId(undefined)}
-        />
+        <NotificationSender />
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
