@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Loader2, Send } from "lucide-react";
+import { Loader2, Send, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +30,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { sendNotification } from "../actions";
 
 const notificationSchema = z.object({
+  clientId: z.string().optional(),
   userId: z.string().optional(),
   title: z.string().min(1, "Vui lòng nhập tiêu đề"),
   message: z.string().min(1, "Vui lòng nhập nội dung"),
@@ -38,12 +39,18 @@ const notificationSchema = z.object({
 
 type NotificationFormValues = z.infer<typeof notificationSchema>;
 
-export function NotificationSender() {
+interface NotificationSenderProps {
+  selectedClientId?: string;
+  onClearClient?: () => void;
+}
+
+export function NotificationSender({ selectedClientId, onClearClient }: NotificationSenderProps) {
   const [isPending, startTransition] = useTransition();
   
   const form = useForm<NotificationFormValues>({
     resolver: zodResolver(notificationSchema),
     defaultValues: {
+      clientId: "",
       userId: "",
       title: "",
       message: "",
@@ -51,21 +58,39 @@ export function NotificationSender() {
     },
   });
 
+  useEffect(() => {
+    if (selectedClientId) {
+      form.setValue("clientId", selectedClientId);
+    }
+  }, [selectedClientId, form]);
+
   function onSubmit(data: NotificationFormValues) {
     startTransition(async () => {
       const result = await sendNotification(data);
       
       if (result.success) {
         toast.success(result.message);
-        form.reset();
+        form.reset({
+          clientId: "",
+          userId: "",
+          title: "",
+          message: "",
+          type: "info",
+        });
+        onClearClient?.();
       } else {
         toast.error(result.message);
       }
     });
   }
 
+  const handleClearClient = () => {
+    form.setValue("clientId", "");
+    onClearClient?.();
+  };
+
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="w-full h-full">
       <CardHeader>
         <CardTitle>Gửi thông báo</CardTitle>
         <CardDescription>
@@ -75,23 +100,29 @@ export function NotificationSender() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* <FormField
+            <FormField
               control={form.control}
-              name="userId"
+              name="clientId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>User ID (Tùy chọn)</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Nhập ID người dùng (để trống để gửi cho tất cả)" {...field} />
-                  </FormControl>
+                  <FormLabel>Client ID (Target)</FormLabel>
+                  <div className="flex gap-2">
+                    <FormControl>
+                      <Input placeholder="Chọn từ danh sách hoặc nhập ID..." {...field} />
+                    </FormControl>
+                    {field.value && (
+                      <Button type="button" variant="ghost" size="icon" onClick={handleClearClient}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <FormDescription>
-                    Nếu để trống, thông báo sẽ không được gửi tới user cụ thể nào (hoặc broadcast tùy backend).
-                    Để test chính mình, hãy nhập ID của bạn hoặc mở tab khác.
+                    ID của kết nối cụ thể. Nếu để trống, có thể dùng User ID hoặc Broadcast.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
-            /> */}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField

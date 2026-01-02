@@ -1,17 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useNotifications } from "@/providers/notification-provider";
-import { broadcastNotification } from "../actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import { NotificationSender } from "./notification-sender";
+import { ConnectedClientsList } from "./connected-clients-list";
 
 export function NotificationTester() {
   const { 
@@ -23,161 +20,110 @@ export function NotificationTester() {
     clearNotifications 
   } = useNotifications();
 
-  const [title, setTitle] = useState("Test Notification");
-  const [message, setMessage] = useState("Hello! This is a test notification.");
-  const [type, setType] = useState<"info" | "success" | "warning" | "error">("info");
-  const [isPending, startTransition] = useTransition();
-
-  const handleBroadcast = () => {
-    if (!title || !message) {
-      toast.error("Vui lòng nhập tiêu đề và nội dung");
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await broadcastNotification({
-        title,
-        message,
-        type,
-      });
-
-      if (result.success) {
-        toast.success(result.message);
-      } else {
-        toast.error(result.message);
-      }
-    });
-  };
+  const [selectedClientId, setSelectedClientId] = useState<string | undefined>(undefined);
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      {/* Connection Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Connection Status</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className={cn(
-            "p-3 rounded-md text-center font-medium transition-colors",
-            isConnected 
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" 
-              : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-          )}>
-            {isConnected ? "Connected ✓" : "Disconnected"}
-          </div>
-          
-          <p className="text-sm">
-            Client ID: <strong className="font-mono">{clientId || "-"}</strong>
-          </p>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Left Column: Connection Status & Connected Clients */}
+      <div className="space-y-6 lg:col-span-1">
+        <Card>
+          <CardHeader>
+            <CardTitle>Trạng thái kết nối</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className={cn(
+              "p-3 rounded-md text-center font-medium transition-colors",
+              isConnected 
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" 
+                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+            )}>
+              {isConnected ? "Đã kết nối" : "Ngắt kết nối"}
+            </div>
+            
+            <p className="text-sm">
+              Client ID của bạn: <br/>
+              <strong className="font-mono text-xs bg-muted p-1 rounded block mt-1 break-all">
+                {clientId || "-"}
+              </strong>
+            </p>
 
-          <div className="flex gap-2">
-            <Button 
-              onClick={connect} 
-              disabled={isConnected}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              Connect
+            <div className="flex gap-2">
+              <Button 
+                onClick={connect} 
+                disabled={isConnected}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+                size="sm"
+              >
+                Kết nối
+              </Button>
+              <Button 
+                onClick={disconnect} 
+                disabled={!isConnected}
+                variant="destructive"
+                className="w-full"
+                size="sm"
+              >
+                Ngắt
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <ConnectedClientsList 
+          onSelectClient={setSelectedClientId} 
+          selectedClientId={selectedClientId}
+        />
+      </div>
+
+      {/* Right Column: Sender & Received Log */}
+      <div className="space-y-6 lg:col-span-2">
+        <NotificationSender 
+          selectedClientId={selectedClientId} 
+          onClearClient={() => setSelectedClientId(undefined)}
+        />
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Log thông báo nhận được</CardTitle>
+            <Button variant="outline" size="sm" onClick={clearNotifications}>
+              Xóa log
             </Button>
-            <Button 
-              onClick={disconnect} 
-              disabled={!isConnected}
-              variant="destructive"
-            >
-              Disconnect
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Send Notification */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Send Notification</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <Input
-            placeholder="Message"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-          <Select value={type} onValueChange={(v: any) => setType(v)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="info">Info</SelectItem>
-              <SelectItem value="success">Success</SelectItem>
-              <SelectItem value="warning">Warning</SelectItem>
-              <SelectItem value="error">Error</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Button 
-            onClick={handleBroadcast} 
-            disabled={isPending}
-            className="w-full"
-          >
-            {isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              "📢 Broadcast to All"
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Received Notifications */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Received Notifications</CardTitle>
-          <Button 
-            variant="destructive" 
-            size="sm" 
-            onClick={clearNotifications}
-            disabled={notifications.length === 0}
-          >
-            Clear All
-          </Button>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[300px] pr-4">
-            {notifications.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">
-                No notifications yet...
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={cn(
-                      "p-3 rounded-md border-l-4 animate-in fade-in slide-in-from-bottom-2",
-                      notif.type === "info" && "bg-blue-50 border-blue-500 dark:bg-blue-950/30",
-                      notif.type === "success" && "bg-green-50 border-green-500 dark:bg-green-950/30",
-                      notif.type === "warning" && "bg-yellow-50 border-yellow-500 dark:bg-yellow-950/30",
-                      notif.type === "error" && "bg-red-50 border-red-500 dark:bg-red-950/30",
-                    )}
-                  >
-                    <div className="font-bold mb-1">{notif.title || "Notification"}</div>
-                    <div className="text-sm mb-1">{notif.message || notif.content}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(notif.timestamp).toLocaleString("vi-VN")}
-                    </div>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[300px] pr-4">
+              <div className="space-y-4">
+                {notifications.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    Chưa có thông báo nào
                   </div>
-                ))}
+                ) : (
+                  notifications.map((notification, index) => (
+                    <div 
+                      key={index} 
+                      className={cn(
+                        "p-4 rounded-lg border",
+                        notification.type === 'error' ? "bg-red-50 border-red-200 dark:bg-red-900/10" :
+                        notification.type === 'success' ? "bg-green-50 border-green-200 dark:bg-green-900/10" :
+                        notification.type === 'warning' ? "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/10" :
+                        "bg-blue-50 border-blue-200 dark:bg-blue-900/10"
+                      )}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <h4 className="font-semibold">{notification.title}</h4>
+                        <Badge variant="outline">{notification.type}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{notification.message}</p>
+                      <p className="text-xs text-muted-foreground mt-2 text-right">
+                        {new Date().toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ))
+                )}
               </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
