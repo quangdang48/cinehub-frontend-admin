@@ -12,7 +12,7 @@ export interface UserDto {
   id: string;
   email: string;
   name: string;
-  gender: string;
+  gender: "male" | "female";
   role: "admin" | "user";
   createdAt: string;
   updatedAt: string;
@@ -32,4 +32,14 @@ export interface LoginResponseDto {
 export interface RefreshTokenResponseDto {
   accessToken: string;
   refreshToken: string;
+}
+
+export interface UpdateProfileDto {
+  name: string;
+  gender: "male" | "female";
+}
+
+export interface ChangePasswordDto {
+  oldPassword: string;
+  newPassword: string;
 }

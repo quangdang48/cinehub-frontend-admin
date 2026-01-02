@@ -2,7 +2,10 @@
 
 import { signIn, signOut } from "@/modules/auth/auth";
 import { AuthError } from "next-auth";
-import type { AuthState } from "./types";
+import type { AuthState, ChangePasswordDto, UpdateProfileDto, UserDto } from "./types";
+import { api } from "@/lib/api-client";
+import { ApiResponse } from "@/types/api";
+import { revalidatePath } from "next/cache";
 
 /**
  * Server action for user login
@@ -45,4 +48,19 @@ export async function login(
  */
 export async function logout(): Promise<void> {
   await signOut({ redirectTo: "/login" });
+}
+
+export async function getProfile() {
+  const response = await api.post<ApiResponse<UserDto>>("/auth/my-info");
+  return response.data;
+}
+
+export async function updateProfile(id: string, data: UpdateProfileDto) {
+  const response = await api.put<ApiResponse<UserDto>>(`/users/${id}`, data);
+  revalidatePath("/profile");
+  return response.data;
+}
+
+export async function changePassword(data: ChangePasswordDto) {
+  await api.post("/auth/change-password", data);
 }

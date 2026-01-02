@@ -13,17 +13,17 @@ import { cn } from "@/lib/utils";
 import { LogOut, User, Settings } from "lucide-react";
 import { logout } from "@/modules/auth/actions";
 import { NotificationDropdown } from "./notification-dropdown";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 interface HeaderProps {
   sidebarCollapsed?: boolean;
-  user?: {
-    name?: string;
-    email?: string;
-  };
 }
 
-export function Header({ sidebarCollapsed = false, user }: HeaderProps) {
+export function Header({ sidebarCollapsed = false }: HeaderProps) {
   const [isPending, startTransition] = useTransition();
+
+  const { data: session } = useSession();
 
   const handleLogout = () => {
     startTransition(async () => {
@@ -72,8 +72,8 @@ export function Header({ sidebarCollapsed = false, user }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-3 rounded-lg p-1 hover:bg-accent">
               <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium">{user?.name || "Admin User"}</p>
-                <p className="text-xs text-muted-foreground">{user?.email || "admin@cinehub.vn"}</p>
+                <p className="text-sm font-medium">{session?.user?.name || "Admin User"}</p>
+                <p className="text-xs text-muted-foreground">{session?.user?.email || "admin@cinehub.vn"}</p>
               </div>
               <Avatar>
                 <AvatarImage src="https://github.com/shadcn.png" />
@@ -82,13 +82,11 @@ export function Header({ sidebarCollapsed = false, user }: HeaderProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              Hồ sơ cá nhân
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Settings className="mr-2 h-4 w-4" />
-              Cài đặt
+            <DropdownMenuItem asChild>
+              <Link href="/profile" className="cursor-pointer">
+                <User className="mr-2 h-4 w-4" />
+                Hồ sơ cá nhân
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

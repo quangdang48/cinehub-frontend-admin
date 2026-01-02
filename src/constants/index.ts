@@ -12,7 +12,7 @@ export const SIDEBAR_ITEMS = [
   { title: 'Bình luận', href: '/comments', icon: 'MessageSquare' },
   { title: 'Đánh giá', href: '/reviews', icon: 'Star' },
   { title: 'Thông báo', href: '/notifications', icon: 'Bell' },
-  { title: 'Cài đặt', href: '/settings', icon: 'Settings' },
+  { title: 'Cá nhân', href: '/profile', icon: 'Profile' },
 ] as const;
 
 export const DEFAULT_PAGE_SIZE = 10;

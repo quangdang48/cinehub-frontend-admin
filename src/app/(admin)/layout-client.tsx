@@ -7,13 +7,9 @@ import { NotificationProvider } from "@/providers/notification-provider";
 
 interface AdminLayoutClientProps {
   children: React.ReactNode;
-  user?: {
-    name?: string;
-    email?: string;
-  };
 }
 
-export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
+export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
@@ -23,7 +19,7 @@ export function AdminLayoutClient({ children, user }: AdminLayoutClientProps) {
           isCollapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <Header sidebarCollapsed={sidebarCollapsed} user={user} />
+        <Header sidebarCollapsed={sidebarCollapsed} />
         <main
           className={cn(
             "pt-16 transition-all duration-300",
