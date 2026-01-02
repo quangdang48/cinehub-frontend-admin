@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@/modules/auth/auth';
-import { ADMIN_API_URL } from '@/config';
+import { API_URL } from '@/config';
 import {
   SendNotificationRequest,
   Notification,
@@ -28,6 +28,15 @@ interface BackendHistoryResponse {
   };
 }
 
+// Type for sending notification to user via WebSocket (uses lowercase enum matching backend)
+export type UserNotificationType = 'info' | 'success' | 'warning' | 'error';
+
+export interface SendUserNotificationData {
+  title: string;
+  message: string;
+  type: UserNotificationType;
+}
+
 export async function fetchConnectedClients(): Promise<{
   success: boolean;
   data: ConnectedClient[];
@@ -37,7 +46,7 @@ export async function fetchConnectedClients(): Promise<{
     const session = await auth();
     const token = session?.accessToken;
 
-    const response = await fetch(`${ADMIN_API_URL}/notifications/clients`, {
+    const response = await fetch(`${API_URL}/admin/notifications/clients`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -92,7 +101,7 @@ export async function fetchNotificationHistory(
     if (targetUserId) params.append('targetUserId', targetUserId);
 
     const response = await fetch(
-      `${ADMIN_API_URL}/notifications/history?${params.toString()}`,
+      `${API_URL}/admin/notifications/history?${params.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -149,7 +158,7 @@ export async function sendNotification(data: SendNotificationRequest) {
     }
 
     // Send to specific client
-    const url = `${ADMIN_API_URL}/notifications/send/${data.clientId}`;
+    const url = `${API_URL}/admin/notifications/send/${data.clientId}`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -186,7 +195,7 @@ export async function broadcastNotification(
     const session = await auth();
     const token = session?.accessToken;
 
-    const response = await fetch(`${ADMIN_API_URL}/notifications/broadcast`, {
+    const response = await fetch(`${API_URL}/admin/notifications/broadcast`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -207,5 +216,142 @@ export async function broadcastNotification(
       return { success: false, message: error.message };
     }
     return { success: false, message: 'Broadcast thất bại' };
+  }
+}
+
+// Types for user selection
+export interface UserSelectItem {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface BackendUsersResponse {
+  success: boolean;
+  data: UserSelectItem[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+  };
+}
+
+/**
+ * Fetch users list for notification targeting
+ */
+export async function fetchUsersForNotification(
+  search?: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<{
+  success: boolean;
+  data: UserSelectItem[];
+  meta?: { total: number; page: number; limit: number };
+  message?: string;
+}> {
+  try {
+    const session = await auth();
+    const token = session?.accessToken;
+    console.log(
+      '[fetchUsersForNotification] Token:',
+      token ? 'present' : 'missing'
+    );
+
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+    });
+    if (search) params.append('search', search);
+
+    const url = `${API_URL}/admin/notifications/users?${params.toString()}`;
+    console.log('[fetchUsersForNotification] URL:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      cache: 'no-store',
+    });
+
+    console.log(
+      '[fetchUsersForNotification] Response status:',
+      response.status
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.log('[fetchUsersForNotification] Error response:', errorText);
+      throw new Error(`Error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('[fetchUsersForNotification] Result:', result);
+
+    // Handle nested response structure: result.data may contain {data: [], meta: {}}
+    const usersData = Array.isArray(result.data)
+      ? result.data
+      : result.data?.data || [];
+    const metaData = result.meta || result.data?.meta;
+
+    return {
+      success: true,
+      data: usersData,
+      meta: metaData,
+    };
+  } catch (error) {
+    console.error('Failed to fetch users for notification:', error);
+    return {
+      success: false,
+      data: [],
+      message: 'Failed to fetch users',
+    };
+  }
+}
+
+/**
+ * Send notification to a specific user via WebSocket
+ */
+export async function sendNotificationToUser(
+  userId: string,
+  data: SendUserNotificationData
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const session = await auth();
+    const token = session?.accessToken;
+
+    const response = await fetch(
+      `${API_URL}/admin/notifications/send-to-user/${userId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          title: data.title,
+          message: data.message,
+          type: data.type,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return {
+      success: true,
+      message: result.message || 'Gửi thông báo đến user thành công',
+    };
+  } catch (error) {
+    console.error('Failed to send notification to user:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: 'Gửi thông báo đến user thất bại' };
   }
 }

@@ -2,7 +2,8 @@ import {
   NotificationTester, 
   NotificationHistory, 
   fetchNotificationHistory, 
-  NotificationTabs 
+  NotificationTabs,
+  Notification 
 } from "@/modules/notifications";
 
 export default async function NotificationsPage({
@@ -16,7 +17,13 @@ export default async function NotificationsPage({
 
   const result = await fetchNotificationHistory(page, limit);
   
-  let historyData = { 
+  let historyData: { 
+      data: Notification[]; 
+      totalPages: number; 
+      totalItems: number; 
+      currentPage: number; 
+      pageSize: number;
+  } = { 
       data: [], 
       totalPages: 0, 
       totalItems: 0, 

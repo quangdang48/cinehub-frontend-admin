@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useCallback } from "react";
 import { toast } from "sonner";
 import { useSSE, type SSENotification } from "@/hooks/use-sse";
-import { ADMIN_API_URL } from "@/config";
+import { API_URL } from "@/config";
 
 interface NotificationContextType {
     isConnected: boolean;
@@ -26,7 +26,7 @@ interface NotificationProviderProps {
 
 export function NotificationProvider({
     children,
-    sseUrl = `${ADMIN_API_URL}/notifications/subscribe`,
+    sseUrl = `${API_URL}/admin/notifications/subscribe`,
 }: NotificationProviderProps) {
     const handleNotification = useCallback((notification: SSENotification) => {
         // Show toast for new notifications
