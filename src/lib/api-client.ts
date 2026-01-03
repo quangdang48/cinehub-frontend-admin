@@ -59,14 +59,21 @@ export async function fetchClient<T>(
     const authHeaders = await getAuthHeaders();
     const url = buildUrl(endpoint, params);
 
+    const isFormData = body instanceof FormData;
+    const headers = {
+      ...defaultConfig.defaultHeaders,
+      ...authHeaders,
+      ...customHeaders,
+    } as Record<string, string>;
+
+    if (isFormData) {
+      delete headers["Content-Type"];
+    }
+    
     const response = await fetch(url, {
       ...restOptions,
-      headers: {
-        ...defaultConfig.defaultHeaders,
-        ...authHeaders,
-        ...customHeaders,
-      },
-      body: body ? JSON.stringify(body) : undefined,
+      headers,
+      body: isFormData ? (body as FormData) : (body ? JSON.stringify(body) : undefined),
       cache: restOptions.method === "GET" ? "default" : "no-store",
     });
 
