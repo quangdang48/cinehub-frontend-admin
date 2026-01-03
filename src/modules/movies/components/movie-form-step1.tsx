@@ -517,8 +517,7 @@ export function MovieFormStep1({
                           field.value.map((id: string) => (
                             <Badge key={id} variant="secondary" className="mr-1">
                               {getGenreName(id)}
-                              <button
-                                type="button"
+                              <div
                                 className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                 onMouseDown={(e) => {
                                   e.preventDefault();
@@ -533,7 +532,7 @@ export function MovieFormStep1({
                                 }}
                               >
                                 <X className="h-3 w-3" />
-                              </button>
+                              </div>
                             </Badge>
                           ))
                         ) : (
@@ -623,8 +622,7 @@ export function MovieFormStep1({
                           field.value.map((id: string) => (
                             <Badge key={id} variant="secondary" className="mr-1">
                               {getDirectorName(id)}
-                              <button
-                                type="button"
+                              <div
                                 className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                                 onMouseDown={(e) => {
                                   e.preventDefault();
@@ -639,7 +637,7 @@ export function MovieFormStep1({
                                 }}
                               >
                                 <X className="h-3 w-3" />
-                              </button>
+                              </div>
                             </Badge>
                           ))
                         ) : (
