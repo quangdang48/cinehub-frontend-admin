@@ -214,26 +214,62 @@ export function MovieFormStep1({
     await onNext(values);
   };
 
+  // Cache for names to handle search results replacing the list
+  const [genreMap, setGenreMap] = useState<Map<string, Genre>>(() => {
+    const map = new Map<string, Genre>();
+    initialGenres.forEach((g) => map.set(g.id, g));
+    return map;
+  });
+  const [directorMap, setDirectorMap] = useState<Map<string, Director>>(() => {
+    const map = new Map<string, Director>();
+    initialDirectors.forEach((d) => map.set(d.id, d));
+    return map;
+  });
+  const [actorMap, setActorMap] = useState<Map<string, Actor>>(() => {
+    const map = new Map<string, Actor>();
+    initialActors.forEach((a) => map.set(a.id, a));
+    return map;
+  });
+
+  // Update caches when lists change
+  useEffect(() => {
+    setGenreMap((prev) => {
+      const next = new Map(prev);
+      genres.forEach((g) => next.set(g.id, g));
+      initialGenres.forEach((g) => next.set(g.id, g));
+      return next;
+    });
+  }, [genres, initialGenres]);
+
+  useEffect(() => {
+    setDirectorMap((prev) => {
+      const next = new Map(prev);
+      directors.forEach((d) => next.set(d.id, d));
+      initialDirectors.forEach((d) => next.set(d.id, d));
+      return next;
+    });
+  }, [directors, initialDirectors]);
+
+  useEffect(() => {
+    setActorMap((prev) => {
+      const next = new Map(prev);
+      actors.forEach((a) => next.set(a.id, a));
+      initialActors.forEach((a) => next.set(a.id, a));
+      return next;
+    });
+  }, [actors, initialActors]);
+
   // Helper to get name by id
   const getGenreName = (id: string) => {
-    const genre =
-      genres.find((g) => g.id === id) ||
-      initialGenres.find((g) => g.id === id);
-    return genre?.name || id;
+    return genreMap.get(id)?.name || id;
   };
 
   const getDirectorName = (id: string) => {
-    const director =
-      directors.find((d) => d.id === id) ||
-      initialDirectors.find((d) => d.id === id);
-    return director?.name || id;
+    return directorMap.get(id)?.name || id;
   };
 
   const getActorName = (id: string) => {
-    const actor =
-      actors.find((a) => a.id === id) ||
-      initialActors.find((a) => a.id === id);
-    return actor?.name || id;
+    return actorMap.get(id)?.name || id;
   };
 
   return (
