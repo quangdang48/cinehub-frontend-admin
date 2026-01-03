@@ -40,7 +40,7 @@ interface DataTableProps<T> {
 
 export function DataTable<T extends Record<string, any>>({
   columns,
-  data,
+  data: rawData,
   emptyMessage = "Không có dữ liệu",
   onRowClick,
   className,
@@ -48,6 +48,8 @@ export function DataTable<T extends Record<string, any>>({
   onSort,
   visibleColumns,
 }: DataTableProps<T>) {
+  // Ensure data is always an array
+  const data = Array.isArray(rawData) ? rawData : [];
   // Filter columns based on visibility
   const displayColumns = visibleColumns
     ? columns.filter((col) => visibleColumns.includes(col.key))

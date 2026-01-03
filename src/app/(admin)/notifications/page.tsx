@@ -1,16 +1,68 @@
-import { NotificationTester } from "@/modules/notifications";
+import { 
+  NotificationTester, 
+  NotificationHistory, 
+  fetchNotificationHistory, 
+  NotificationTabs,
+  Notification 
+} from "@/modules/notifications";
 
-export default function NotificationsPage() {
+export default async function NotificationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; limit?: string; tab?: string }>;
+}) {
+  const params = await searchParams;
+  const page = Number(params.page) || 1;
+  const limit = Number(params.limit) || 10;
+
+  const result = await fetchNotificationHistory(page, limit);
+  
+  let historyData: { 
+      data: Notification[]; 
+      totalPages: number; 
+      totalItems: number; 
+      currentPage: number; 
+      pageSize: number;
+  } = { 
+      data: [], 
+      totalPages: 0, 
+      totalItems: 0, 
+      currentPage: 1, 
+      pageSize: 10 
+  };
+
+  if ('data' in result) {
+      historyData = {
+          data: result.data,
+          totalPages: result.totalPages,
+          totalItems: result.totalItems,
+          currentPage: result.currentPage,
+          pageSize: result.itemsPerPage
+      };
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Test Thông báo Realtime</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Quản lý Thông báo</h1>
         <p className="text-muted-foreground">
-          Công cụ kiểm tra kết nối SSE và gửi thông báo broadcast.
+          Gửi thông báo và xem lịch sử gửi.
         </p>
       </div>
-      
-      <NotificationTester />
+
+      <NotificationTabs 
+        sendContent={<NotificationTester />}
+        historyContent={
+             <NotificationHistory 
+                data={historyData.data}
+                totalPages={historyData.totalPages}
+                totalItems={historyData.totalItems}
+                currentPage={historyData.currentPage}
+                pageSize={historyData.pageSize}
+             />
+        }
+      />
     </div>
   );
 }
+

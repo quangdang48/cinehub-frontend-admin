@@ -14,20 +14,27 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
 
   return (
     <NotificationProvider>
-      <div className="min-h-screen bg-background">
+      <div className="flex h-screen overflow-hidden bg-muted/40">
+        
         <Sidebar
           isCollapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
-        <Header sidebarCollapsed={sidebarCollapsed} />
-        <main
+
+        <div
           className={cn(
-            "pt-16 transition-all duration-300",
-            sidebarCollapsed ? "ml-16" : "ml-64"
+            "flex flex-1 flex-col overflow-hidden transition-all duration-300",
+            sidebarCollapsed ? "ml-16" : "ml-64" // Margin left để né Sidebar fixed
           )}
         >
-          <div className="p-6">{children}</div>
-        </main>
+          <Header />
+
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="p-6">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
     </NotificationProvider>
   );

@@ -21,7 +21,7 @@ interface UseSSEOptions {
   onError?: (error: Event) => void;
 }
 
-interface UseSSEReturn {
+export interface UseSSEReturn {
   isConnected: boolean;
   clientId: string | null;
   notifications: SSENotification[];

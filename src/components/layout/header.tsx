@@ -1,28 +1,29 @@
 "use client";
 
 import { useTransition } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LogOut, User, Settings } from "lucide-react";
+import { LogOut, User, LayoutDashboard } from "lucide-react";
 import { logout } from "@/modules/auth/actions";
 import { NotificationDropdown } from "./notification-dropdown";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
 
 interface HeaderProps {
-  sidebarCollapsed?: boolean;
+  className?: string;
 }
 
-export function Header({ sidebarCollapsed = false }: HeaderProps) {
+export function Header({ className }: HeaderProps) {
   const [isPending, startTransition] = useTransition();
-
   const { data: session } = useSession();
 
   const handleLogout = () => {
@@ -34,32 +35,11 @@ export function Header({ sidebarCollapsed = false }: HeaderProps) {
   return (
     <header
       className={cn(
-        "fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b bg-background px-6 transition-all duration-300",
-        sidebarCollapsed ? "left-16" : "left-64"
+        "sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-background/95 px-6 backdrop-blur supports-backdrop-filter:bg-background/60",
+        className
       )}
     >
-      {/* Search */}
-      <div className="flex items-center gap-4">
-        <div className="relative">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.3-4.3" />
-          </svg>
-          <input
-            type="search"
-            placeholder="Tìm kiếm..."
-            className="h-9 w-64 rounded-md border border-input bg-transparent pl-9 pr-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
+      <div className="flex items-center gap-2 font-bold">
       </div>
 
       {/* Right side */}
@@ -67,35 +47,50 @@ export function Header({ sidebarCollapsed = false }: HeaderProps) {
         {/* Notifications */}
         <NotificationDropdown />
 
-        {/* User menu */}
+        {/* User Menu */}
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-3 rounded-lg p-1 hover:bg-accent">
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium">{session?.user?.name || "Admin User"}</p>
-                <p className="text-xs text-muted-foreground">{session?.user?.email || "admin@cinehub.vn"}</p>
-              </div>
-              <Avatar>
-                <AvatarImage src="https://github.com/shadcn.png" />
-                <AvatarFallback>CN</AvatarFallback>
+            <Button variant="ghost" className="relative h-10 w-full gap-2 rounded-full px-2 hover:bg-accent sm:w-auto sm:px-4">
+               <Avatar className="h-8 w-8">
+                <AvatarImage src="https://github.com/shadcn.png" alt={session?.user?.name || ""} />
+                <AvatarFallback>AD</AvatarFallback>
               </Avatar>
-            </button>
+              <div className="hidden flex-col items-start text-left sm:flex">
+                <span className="text-sm font-medium leading-none">{session?.user?.name || "Admin User"}</span>
+                <span className="text-xs text-muted-foreground">{session?.user?.email || "admin@cinehub.vn"}</span>
+              </div>
+            </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent align="end" className="w-56" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{session?.user?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {session?.user?.email}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/profile" className="cursor-pointer">
                 <User className="mr-2 h-4 w-4" />
-                Hồ sơ cá nhân
+                <span>Hồ sơ cá nhân</span>
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard" className="cursor-pointer">
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Dashboard</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}
               disabled={isPending}
-              className="text-red-600 focus:text-red-600"
+              className="cursor-pointer text-red-600 focus:text-red-600"
             >
               <LogOut className="mr-2 h-4 w-4" />
-              {isPending ? "Đang đăng xuất..." : "Đăng xuất"}
+              <span>{isPending ? "Đang xử lý..." : "Đăng xuất"}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
