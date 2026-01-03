@@ -39,7 +39,7 @@ function buildUrl(
   return url.toString();
 }
 
-async function getAuthHeaders(): Promise<HeadersInit> {
+export async function getAuthHeaders(): Promise<HeadersInit> {
   const session = await auth();
   if (!session?.accessToken) {
     return {};

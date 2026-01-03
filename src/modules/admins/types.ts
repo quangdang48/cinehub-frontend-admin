@@ -14,6 +14,7 @@ export interface Admin {
   email: string;
   gender: Gender;
   role: UserRole;
+  avatarUrl?: string;
   isActive?: boolean;
   isVerified?: boolean;
   createdAt: string;

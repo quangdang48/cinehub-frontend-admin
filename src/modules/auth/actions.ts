@@ -3,9 +3,10 @@
 import { signIn, signOut } from "@/modules/auth/auth";
 import { AuthError } from "next-auth";
 import type { AuthState, ChangePasswordDto, UpdateProfileDto, UserDto } from "./types";
-import { api } from "@/lib/api-client";
-import { ApiResponse } from "@/types/api";
+import { api, getAuthHeaders } from "@/lib/api-client";
+import { ApiError, ApiResponse } from "@/types/api";
 import { revalidatePath } from "next/cache";
+import { API_URL } from "@/config/config";
 
 /**
  * Server action for user login
@@ -55,10 +56,23 @@ export async function getProfile() {
   return response.data;
 }
 
-export async function updateProfile(id: string, data: UpdateProfileDto) {
-  const response = await api.put<ApiResponse<UserDto>>(`/users/${id}`, data);
+export async function updateProfile(id: string, formData: FormData) {
+  const authHeaders = await getAuthHeaders();
+
+  const response = await fetch(`${API_URL}/users/${id}`, {
+    method: "PUT",
+    headers: authHeaders,
+    body: formData,
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new ApiError(response.status, data.message);
+  }
+
   revalidatePath("/profile");
-  return response.data;
+  return data.data;
 }
 
 export async function changePassword(data: ChangePasswordDto) {

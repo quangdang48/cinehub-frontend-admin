@@ -66,6 +66,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: loginData.user.email,
             name: loginData.user.name,
             gender: loginData.user.gender,
+            avatarUrl: loginData.user.avatarUrl,
             role: loginData.user.role,
             accessToken: loginData.accessToken,
             refreshToken: loginData.refreshToken,
@@ -86,6 +87,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           name: user.name,
           gender: user.gender,
+          avatarUrl: user.avatarUrl,
           role: user.role,
           accessToken: user.accessToken,
           refreshToken: user.refreshToken,
@@ -118,6 +120,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: token.email,
         name: token.name,
         gender: token.gender,
+        avatarUrl: token.avatarUrl,
         role: token.role,
       };
       session.accessToken = token.accessToken;

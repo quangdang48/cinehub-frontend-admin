@@ -13,6 +13,7 @@ export interface UserDto {
   email: string;
   name: string;
   gender: "male" | "female";
+  avatarUrl?: string;
   role: "admin" | "user";
   createdAt: string;
   updatedAt: string;

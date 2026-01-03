@@ -157,9 +157,9 @@ export function NotificationDropdown() {
                 </div>
 
                 {/* Notification List */}
-                <ScrollArea className="h-[300px]">
+                <ScrollArea className="h-75">
                     {notifications.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-[200px] text-muted-foreground">
+                        <div className="flex flex-col items-center justify-center h-50 text-muted-foreground">
                             <Bell className="h-10 w-10 mb-2 opacity-50" />
                             <p className="text-sm">Không có thông báo</p>
                         </div>

@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, normalizeUrl } from "@/lib/utils";
 import { LogOut, User, LayoutDashboard } from "lucide-react";
 import { logout } from "@/modules/auth/actions";
 import { NotificationDropdown } from "./notification-dropdown";
@@ -52,7 +52,7 @@ export function Header({ className }: HeaderProps) {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-full gap-2 rounded-full px-2 hover:bg-accent sm:w-auto sm:px-4">
                <Avatar className="h-8 w-8">
-                <AvatarImage src="https://github.com/shadcn.png" alt={session?.user?.name || ""} />
+                <AvatarImage src={session?.user?.avatarUrl ? normalizeUrl(session.user.avatarUrl) : "https://github.com/shadcn.png"} alt={session?.user?.name || ""} />
                 <AvatarFallback>AD</AvatarFallback>
               </Avatar>
               <div className="hidden flex-col items-start text-left sm:flex">
