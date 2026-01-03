@@ -321,15 +321,15 @@ export function DashboardCharts({
         </Card>
       </div>
 
-      {/* Row 3: Genre Horizontal Bar Chart */}
+      {/* Row 3: Country Horizontal Bar Chart */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
-            Thể loại phim phổ biến
+            Quốc gia sản xuất phim
           </CardTitle>
           <CardDescription>
-            Top 6 thể loại phim được xem nhiều nhất
+            Top 6 quốc gia có nhiều phim nhất
           </CardDescription>
         </CardHeader>
         <CardContent>

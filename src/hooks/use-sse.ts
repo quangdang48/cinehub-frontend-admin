@@ -4,13 +4,23 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 
 export interface SSENotification {
   id: string;
-  type: 'info' | 'success' | 'warning' | 'error' | 'connected';
+  type:
+    | 'info'
+    | 'success'
+    | 'warning'
+    | 'error'
+    | 'connected'
+    | 'admin.user_subscribed'
+    | 'admin.user_unsubscribed'
+    | 'admin.payment_received'
+    | 'admin.payment_failed';
   title?: string;
   message?: string;
   content?: string;
   timestamp: string;
   read?: boolean;
   metadata?: Record<string, unknown>;
+  data?: Record<string, unknown>;
 }
 
 interface UseSSEOptions {

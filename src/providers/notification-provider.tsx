@@ -45,6 +45,31 @@ export function NotificationProvider({
             case "error":
                 toast.error(notification.title || "Lỗi", toastOptions);
                 break;
+            // Admin subscription notifications
+            case "admin.user_subscribed":
+                toast.success(notification.title || "🎉 Đăng ký mới!", {
+                    ...toastOptions,
+                    duration: 8000,
+                });
+                break;
+            case "admin.user_unsubscribed":
+                toast.warning(notification.title || "⚠️ Hủy đăng ký", {
+                    ...toastOptions,
+                    duration: 8000,
+                });
+                break;
+            case "admin.payment_received":
+                toast.success(notification.title || "💰 Thanh toán mới!", {
+                    ...toastOptions,
+                    duration: 6000,
+                });
+                break;
+            case "admin.payment_failed":
+                toast.error(notification.title || "❌ Thanh toán thất bại", {
+                    ...toastOptions,
+                    duration: 8000,
+                });
+                break;
             default:
                 toast.info(notification.title || "Thông báo", toastOptions);
         }

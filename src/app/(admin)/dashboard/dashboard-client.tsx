@@ -123,7 +123,7 @@ export function DashboardClient({
           />
           <StatCard
             title="Doanh thu"
-            value={`$${stats.revenue.toLocaleString()}`}
+            value={`${stats.revenue.toLocaleString('vi-VN')} ₫`}
             icon={DollarSign}
             trend="up"
             trendValue="+23% so với tháng trước"
