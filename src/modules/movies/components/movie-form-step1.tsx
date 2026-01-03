@@ -58,7 +58,7 @@ const movieFormSchema = z.object({
   status: z.enum(FilmStatus),
   type: z.enum(FilmType),
   imdbRating: z.coerce.number().min(0).max(10).optional(),
-  genres: z.array(z.string()).min(0),
+  genres: z.array(z.string()).min(1, "Phải chọn ít nhất một thể loại"),
   directors: z.array(z.string()).min(0),
   casts: z.array(z.object({
     actorId: z.string(),
@@ -605,7 +605,7 @@ export function MovieFormStep1({
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel>Đạo diễn *</FieldLabel>
+                <FieldLabel>Đạo diễn</FieldLabel>
                 <Popover open={directorOpen} onOpenChange={setDirectorOpen}>
                   <PopoverTrigger asChild>
                     <Button
@@ -714,7 +714,7 @@ export function MovieFormStep1({
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid}>
-                <FieldLabel>Diễn viên *</FieldLabel>
+                <FieldLabel>Diễn viên</FieldLabel>
                 <FieldDescription>
                   Chọn diễn viên và nhập tên vai diễn cho mỗi người
                 </FieldDescription>
