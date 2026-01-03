@@ -5,7 +5,7 @@ export interface ReviewAuthor {
     id: string;
     name: string;
     email: string;
-    avatar?: string;
+    avatarUrl?: string;
 }
 
 export interface ReviewReport {
@@ -36,4 +36,6 @@ export interface ReviewFilters {
     page?: number;
     limit?: number;
     filmId?: string;
+    search?: string;
+    sort?: string;
 }

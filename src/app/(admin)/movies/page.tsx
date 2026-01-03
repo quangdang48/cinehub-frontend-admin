@@ -20,8 +20,7 @@ interface MoviesPageProps {
     status?: string;
     type?: string;
     ageLimit?: string;
-    sortBy?: string;
-    sortOrder?: string;
+    sort?: string;
   }>;
 }
 
@@ -41,8 +40,7 @@ export default async function MoviesPage({ searchParams }: MoviesPageProps) {
     status: params.status as FilmStatus,
     type: params.type as FilmType,
     ageLimit: params.ageLimit as AgeLimit,
-    sortBy: params.sortBy,
-    sortOrder: params.sortOrder as "asc" | "desc",
+    sort: params.sort,
   };
 
   // Fetch data in parallel

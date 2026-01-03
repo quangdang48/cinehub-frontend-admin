@@ -10,10 +10,12 @@ export async function getGenres(
     filters: GenreFilters = {}
 ): Promise<PaginatedApiResponse<Genre>> {
     try {
-        const params = {
+        const params: Record<string, string | number | undefined> = {
             page: filters.page || 1,
             limit: filters.limit || 10,
         };
+        if (filters.search) params.search = filters.search;
+        if (filters.sort) params.sort = filters.sort;
 
         const response = await api.get<PaginatedApiResponse<Genre>>("/genres", params);
         return response;

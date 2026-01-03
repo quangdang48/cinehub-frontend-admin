@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { UserDto } from "@/modules/auth/types";
@@ -9,12 +9,15 @@ import { updateProfileSchema, changePasswordSchema } from "@/modules/auth/schema
 import { updateProfile, changePassword } from "@/modules/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { z } from "zod";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSession } from "next-auth/react";
+import { Field, FieldError, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera } from "lucide-react";
+import { normalizeUrl } from "@/lib/utils";
 
 interface ProfilePageClientProps {
   user: UserDto;
@@ -22,7 +25,17 @@ interface ProfilePageClientProps {
 
 export function ProfilePageClient({ user }: ProfilePageClientProps) {
   const [isPending, startTransition] = useTransition();
-  const { data: session, update } = useSession();
+  const { update } = useSession();
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user.avatarUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview && avatarPreview !== user.avatarUrl && avatarPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview, user.avatarUrl]);
 
   const profileForm = useForm<z.infer<typeof updateProfileSchema>>({
     resolver: zodResolver(updateProfileSchema as any),
@@ -30,7 +43,17 @@ export function ProfilePageClient({ user }: ProfilePageClientProps) {
       name: user.name,
       gender: user.gender,
     },
+    mode: "onSubmit",
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldChange: (file: File) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      fieldChange(file); 
+      setAvatarPreview(URL.createObjectURL(file));
+      e.target.value = "";
+    }
+  };
 
   const passwordForm = useForm<z.infer<typeof changePasswordSchema>>({
     resolver: zodResolver(changePasswordSchema as any),
@@ -41,17 +64,24 @@ export function ProfilePageClient({ user }: ProfilePageClientProps) {
     },
   });
 
-  const onProfileSubmit = (data: z.infer<typeof updateProfileSchema>) => {
+  const onProfileSubmit = (values: z.infer<typeof updateProfileSchema>) => {
     startTransition(async () => {
       try {
-        const updatedUser = await updateProfile(user.id, data);
+        const formData = new FormData();
+        formData.append("name", values.name);
+        formData.append("gender", values.gender);
+        if (values.avatar) {
+          formData.append("avatar", values.avatar);
+        }
+        const updatedUser = await updateProfile(user.id, formData);
         update({
             name: updatedUser.name,
             gender: updatedUser.gender,
+            avatarUrl: updatedUser.avatarUrl,
         })
         toast.success("Cập nhật thông tin thành công");
-      } catch (error) {
-        toast.error("Cập nhật thông tin thất bại");
+      } catch (error: any) {
+        toast.error(error.message || "Cập nhật thông tin thất bại");
       }
     });
   };
@@ -62,8 +92,8 @@ export function ProfilePageClient({ user }: ProfilePageClientProps) {
         await changePassword(data);
         toast.success("Đổi mật khẩu thành công");
         passwordForm.reset();
-      } catch (error) {
-        toast.error("Đổi mật khẩu thất bại");
+      } catch (error: any) {
+        toast.error(error.message || "Đổi mật khẩu thất bại");
       }
     });
   };
@@ -87,37 +117,87 @@ export function ProfilePageClient({ user }: ProfilePageClientProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={user.email} disabled />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="name">Họ và tên</Label>
-                  <Input id="name" {...profileForm.register("name")} />
-                  {profileForm.formState.errors.name && (
-                    <p className="text-sm text-red-500">{profileForm.formState.errors.name.message}</p>
+              <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+                <Controller
+                  name="avatar"
+                  control={profileForm.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <div className="flex flex-col items-center justify-center gap-4">
+                        <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                          <Avatar className="h-28 w-28 border-2 border-border">
+                            <AvatarImage src={avatarPreview ? normalizeUrl(avatarPreview) : "https://github.com/shadcn.png"} alt={user.name || ""} />
+                            <AvatarFallback className="text-2xl font-bold bg-muted">
+                              {user.name?.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          {/* Overlay icon Camera */}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera className="h-8 w-8 text-white" />
+                          </div>
+                        </div>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          ref={fileInputRef}
+                          onChange={(e) => handleFileChange(e, field.onChange)}
+                        />
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-primary cursor-pointer hover:underline" onClick={() => fileInputRef.current?.click()}>
+                            Thay đổi ảnh đại diện
+                          </p>
+                        </div>
+                        {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                      </div>
+                    </Field>
                   )}
-                </div>
+                />
 
-                <div className="space-y-2">
-                  <Label htmlFor="gender">Giới tính</Label>
-                  <Select 
-                    onValueChange={(value) => profileForm.setValue("gender", value as "male" | "female")}
-                    defaultValue={user.gender}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn giới tính" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Nam</SelectItem>
-                      <SelectItem value="female">Nữ</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Field>
+                  <FieldLabel htmlFor="email">Email</FieldLabel>
+                  <Input id="email" value={user.email} disabled />
+                </Field>
+                
+                <Controller
+                  name="name"
+                  control={profileForm.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Họ và tên</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        placeholder="Nhập họ và tên"
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="name"
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
 
-                <Button type="submit" disabled={isPending}>
+                <Controller
+                  name="gender"
+                  control={profileForm.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Giới tính</FieldLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? "male"}>
+                        <SelectTrigger id={field.name} aria-invalid={fieldState.invalid}>
+                          <SelectValue placeholder="Chọn giới tính" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Nam</SelectItem>
+                          <SelectItem value="female">Nữ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
+                  )}
+                />
+
+                <Button type="submit" className="w-full" disabled={isPending}>
                   {isPending ? "Đang lưu..." : "Lưu thay đổi"}
                 </Button>
               </form>
@@ -134,32 +214,68 @@ export function ProfilePageClient({ user }: ProfilePageClientProps) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="oldPassword">Mật khẩu hiện tại</Label>
-                  <Input id="oldPassword" type="password" {...passwordForm.register("oldPassword")} />
-                  {passwordForm.formState.errors.oldPassword && (
-                    <p className="text-sm text-red-500">{passwordForm.formState.errors.oldPassword.message}</p>
+              <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-6">
+                <Controller
+                  name="oldPassword"
+                  control={passwordForm.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Mật khẩu hiện tại</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        type="password"
+                        placeholder="Nhập mật khẩu hiện tại"
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="current-password"
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
                   )}
-                </div>
+                />
                 
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">Mật khẩu mới</Label>
-                  <Input id="newPassword" type="password" {...passwordForm.register("newPassword")} />
-                  {passwordForm.formState.errors.newPassword && (
-                    <p className="text-sm text-red-500">{passwordForm.formState.errors.newPassword.message}</p>
+                <Controller
+                  name="newPassword"
+                  control={passwordForm.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Mật khẩu mới</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        type="password"
+                        placeholder="Nhập mật khẩu mới"
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="new-password"
+                      />
+                      <FieldDescription>
+                        Mật khẩu phải có ít nhất 8 ký tự.
+                      </FieldDescription>
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
                   )}
-                </div>
+                />
                 
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-                  <Input id="confirmPassword" type="password" {...passwordForm.register("confirmPassword")} />
-                  {passwordForm.formState.errors.confirmPassword && (
-                    <p className="text-sm text-red-500">{passwordForm.formState.errors.confirmPassword.message}</p>
+                <Controller
+                  name="confirmPassword"
+                  control={passwordForm.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor={field.name}>Xác nhận mật khẩu mới</FieldLabel>
+                      <Input
+                        {...field}
+                        id={field.name}
+                        type="password"
+                        placeholder="Nhập lại mật khẩu mới"
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="new-password"
+                      />
+                      {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                    </Field>
                   )}
-                </div>
+                />
 
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" className="w-full" disabled={isPending}>
                   {isPending ? "Đang lưu..." : "Đổi mật khẩu"}
                 </Button>
               </form>

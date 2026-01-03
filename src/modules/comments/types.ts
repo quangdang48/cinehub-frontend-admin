@@ -4,7 +4,7 @@ export interface CommentAuthor {
     id: string;
     name: string;
     email: string;
-    avatar?: string;
+    avatarUrl?: string;
 }
 
 export enum ReportReason {
@@ -44,4 +44,6 @@ export interface CommentFilters {
     page?: number;
     limit?: number;
     filmId?: string;
+    search?: string;
+    sort?: string;
 }

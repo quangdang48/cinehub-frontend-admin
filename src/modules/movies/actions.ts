@@ -16,7 +16,12 @@ import type {
   Episode,
   CreateSeasonDto,
   CreateEpisodeDto,
+  UpdateSeasonDto,
+  UpdateEpisodeDto,
+  VideoStatusResponse,
 } from "./types";
+import { auth } from "../auth";
+import { API_URL } from "@/config";
 
 export async function getMovies(
   filters: MovieFilters = {}
@@ -36,8 +41,7 @@ export async function getMovies(
     if (filters.status) params.status = filters.status;
     if (filters.type) params.type = filters.type;
     if (filters.ageLimit) params.ageLimit = filters.ageLimit;
-    if (filters.sortBy) params.sortBy = filters.sortBy;
-    if (filters.sortOrder) params.sortOrder = filters.sortOrder;
+    if (filters.sort) params.sort = filters.sort;
 
     const response = await api.get<PaginatedApiResponse<Movie>>("/films", params);
     return response;
@@ -264,5 +268,178 @@ export async function createEpisode(
       success: false,
       error: getErrorMessage(error),
     };
+  }
+}
+
+export async function updateSeason(
+  filmId: string,
+  seasonNumber: number,
+  data: UpdateSeasonDto
+): Promise<ActionResult<Season>> {
+  try {
+    const response = await api.put<ApiResponse<Season>>(
+      `/films/${filmId}/seasons/${seasonNumber}`,
+      data
+    );
+    revalidatePath(`/movies/${filmId}/edit`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Error updating season:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function deleteSeason(
+  filmId: string,
+  seasonNumber: number
+): Promise<ActionResult> {
+  try {
+    await api.delete(`/films/${filmId}/seasons/${seasonNumber}`);
+    revalidatePath(`/movies/${filmId}/edit`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting season:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function updateEpisode(
+  filmId: string,
+  seasonNumber: number,
+  episodeNumber: number,
+  data: UpdateEpisodeDto
+): Promise<ActionResult<Episode>> {
+  try {
+    const response = await api.put<ApiResponse<Episode>>(
+      `/films/${filmId}/seasons/${seasonNumber}/episodes/${episodeNumber}`,
+      data
+    );
+    revalidatePath(`/movies/${filmId}/edit`);
+    return {
+      success: true,
+      data: response.data,
+    };
+  } catch (error) {
+    console.error("Error updating episode:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function deleteEpisode(
+  filmId: string,
+  seasonNumber: number,
+  episodeNumber: number
+): Promise<ActionResult> {
+  try {
+    await api.delete(`/films/${filmId}/seasons/${seasonNumber}/episodes/${episodeNumber}`);
+    revalidatePath(`/movies/${filmId}/edit`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting episode:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function checkVideoStatus(
+  filmId: string,
+  season?: number,
+  episode?: number
+): Promise<VideoStatusResponse> {
+  try {
+    let url = `${API_URL}/streaming?filmId=${filmId}`;
+    if (season) url += `&season=${season}`;
+    if (episode) url += `&episode=${episode}`;
+    const session = await auth();
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session?.accessToken}`,
+      },
+    });
+    if (!response.ok) {
+      throw new Error("Video not found");
+    }
+    return { hasVideo: true };
+  } catch (error) {
+    return { hasVideo: false };
+  }
+}
+
+export async function deleteVideo(
+  filmId: string,
+  season?: number,
+  episode?: number
+): Promise<ActionResult> {
+  try {
+    let url = `/films/${filmId}/video`;
+    const params = new URLSearchParams();
+    if (season !== undefined) params.append("season", season.toString());
+    if (episode !== undefined) params.append("episode", episode.toString());
+    if (params.toString()) url += `?${params.toString()}`;
+    
+    await api.delete(url);
+    revalidatePath(`/movies/${filmId}/edit`);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting video:", error);
+    return {
+      success: false,
+      error: getErrorMessage(error),
+    };
+  }
+}
+
+export async function searchGenres(search?: string): Promise<Genre[]> {
+  try {
+    const params: Record<string, string | number> = { limit: 100 };
+    if (search) params.search = search;
+    
+    const response = await api.get<PaginatedApiResponse<Genre>>("/genres", params);
+    return response.data;
+  } catch (error) {
+    console.error("Error searching genres:", error);
+    return [];
+  }
+}
+
+export async function searchDirectors(search?: string): Promise<Director[]> {
+  try {
+    const params: Record<string, string | number> = { limit: 100 };
+    if (search) params.search = search;
+    
+    const response = await api.get<PaginatedApiResponse<Director>>("/directors", params);
+    return response.data;
+  } catch (error) {
+    console.error("Error searching directors:", error);
+    return [];
+  }
+}
+
+export async function searchActors(search?: string): Promise<Actor[]> {
+  try {
+    const params: Record<string, string | number> = { limit: 100 };
+    if (search) params.search = search;
+    
+    const response = await api.get<PaginatedApiResponse<Actor>>("/actors", params);
+    return response.data;
+  } catch (error) {
+    console.error("Error searching actors:", error);
+    return [];
   }
 }

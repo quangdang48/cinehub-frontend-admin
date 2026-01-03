@@ -2,17 +2,70 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  ArrowRight,
+  Save,
+  Edit2,
+  Film,
+  AlertTriangle,
+} from "lucide-react";
 import { toast } from "sonner";
-import { createSeason, createEpisode, getSeasons } from "../actions";
+import {
+  createSeason,
+  createEpisode,
+  getSeasons,
+  updateSeason as updateSeasonApi,
+  deleteSeason as deleteSeasonApi,
+  updateEpisode as updateEpisodeApi,
+  deleteEpisode as deleteEpisodeApi,
+} from "../actions";
 import { seasonStatusOptions } from "../const";
 import type { Season, SeasonStatus, Episode } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface SeasonForm {
   number: number;
@@ -23,38 +76,59 @@ interface SeasonForm {
   episodes: EpisodeForm[];
   isExpanded: boolean;
   isSaved: boolean;
+  isEditing: boolean;
+  hasChanges: boolean;
 }
 
 interface EpisodeForm {
   number: number;
   releaseDate?: string;
   isSaved: boolean;
+  isEditing: boolean;
+  hasChanges: boolean;
+}
+
+interface DeleteConfirmation {
+  type: "season" | "episode";
+  seasonIndex: number;
+  episodeIndex?: number;
+  seasonNumber: number;
+  episodeNumber?: number;
+  episodeCount?: number;
 }
 
 interface MovieFormStep3Props {
   filmId: string;
+  existingSeasons?: Season[];
   onNext: () => void;
-  onBack: () => void;
 }
 
-export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3Props) {
+export function MovieFormStep3Series({
+  filmId,
+  existingSeasons,
+  onNext,
+}: MovieFormStep3Props) {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [seasons, setSeasons] = useState<SeasonForm[]>([]);
-  const [existingSeasons, setExistingSeasons] = useState<Season[]>([]);
+  const [savingSeasonIndex, setSavingSeasonIndex] = useState<number | null>(
+    null
+  );
+  const [expandedSeason, setExpandedSeason] = useState<string | undefined>();
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmation | null>(
+    null
+  );
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (seasons.length === 0 && initialLoading) {
-      loadExistingSeasons();
-    }
-  }, [filmId, initialLoading]);
+    loadExistingSeasons();
+  }, [filmId]);
 
   const loadExistingSeasons = async () => {
     setInitialLoading(true);
     try {
       const data = await getSeasons(filmId);
-      setExistingSeasons(data);
-      
+
       // Convert existing seasons to form data
       if (data.length > 0) {
         const seasonForms: SeasonForm[] = data.map((season) => ({
@@ -67,9 +141,13 @@ export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3P
             number: ep.number,
             releaseDate: ep.releaseDate?.split("T")[0],
             isSaved: true,
+            isEditing: false,
+            hasChanges: false,
           })),
           isExpanded: false,
           isSaved: true,
+          isEditing: false,
+          hasChanges: false,
         }));
         setSeasons(seasonForms);
       }
@@ -82,123 +160,371 @@ export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3P
   };
 
   const addSeason = () => {
-    const nextSeasonNumber = seasons.length > 0 
-      ? Math.max(...seasons.map(s => s.number)) + 1 
-      : 1;
-    
-    setSeasons([
-      ...seasons,
-      {
-        number: nextSeasonNumber,
-        status: "UPCOMING" as SeasonStatus,
-        episodeCount: 0,
-        episodes: [],
-        isExpanded: true,
-        isSaved: false,
-      },
-    ]);
+    const nextSeasonNumber =
+      seasons.length > 0 ? Math.max(...seasons.map((s) => s.number)) + 1 : 1;
+
+    const newSeasonForm: SeasonForm = {
+      number: nextSeasonNumber,
+      status: "UPCOMING" as SeasonStatus,
+      episodeCount: 0,
+      episodes: [],
+      isExpanded: true,
+      isSaved: false,
+      isEditing: false,
+      hasChanges: false,
+    };
+
+    setSeasons([...seasons, newSeasonForm]);
+    setExpandedSeason(`season-${seasons.length}`);
   };
 
-  const removeSeason = (index: number) => {
-    setSeasons(seasons.filter((_, i) => i !== index));
+  // Confirm delete season
+  const confirmDeleteSeason = (seasonIndex: number) => {
+    const season = seasons[seasonIndex];
+    setDeleteConfirm({
+      type: "season",
+      seasonIndex,
+      seasonNumber: season.number,
+      episodeCount: season.episodes.length,
+    });
   };
 
-  const updateSeason = (index: number, updates: Partial<SeasonForm>) => {
+  // Confirm delete episode
+  const confirmDeleteEpisode = (seasonIndex: number, episodeIndex: number) => {
+    const season = seasons[seasonIndex];
+    const episode = season.episodes[episodeIndex];
+    setDeleteConfirm({
+      type: "episode",
+      seasonIndex,
+      episodeIndex,
+      seasonNumber: season.number,
+      episodeNumber: episode.number,
+    });
+  };
+
+  // Execute season delete
+  const executeDeleteSeason = async () => {
+    if (!deleteConfirm || deleteConfirm.type !== "season") return;
+
+    const { seasonIndex } = deleteConfirm;
+    const season = seasons[seasonIndex];
+
+    // If not saved yet, just remove from local state
+    if (!season.isSaved) {
+      setSeasons(seasons.filter((_, i) => i !== seasonIndex));
+      setDeleteConfirm(null);
+      return;
+    }
+
+    // Call API to delete saved season
+    setDeleting(true);
+    try {
+      const result = await deleteSeasonApi(filmId, season.number);
+      if (result.success) {
+        setSeasons(seasons.filter((_, i) => i !== seasonIndex));
+        toast.success(`Đã xóa mùa ${season.number} và tất cả các tập`);
+      } else {
+        toast.error(result.error || "Lỗi khi xóa mùa phim");
+      }
+    } catch (error) {
+      console.error("Error deleting season:", error);
+      toast.error("Đã xảy ra lỗi khi xóa mùa phim");
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(null);
+    }
+  };
+
+  // Execute episode delete
+  const executeDeleteEpisode = async () => {
+    if (!deleteConfirm || deleteConfirm.type !== "episode") return;
+
+    const { seasonIndex, episodeIndex } = deleteConfirm;
+    const season = seasons[seasonIndex];
+    const episode = season.episodes[episodeIndex!];
+
+    // If not saved yet, just remove from local state
+    if (!episode.isSaved) {
+      const updatedSeasons = [...seasons];
+      updatedSeasons[seasonIndex].episodes = season.episodes.filter(
+        (_, i) => i !== episodeIndex
+      );
+      updatedSeasons[seasonIndex].episodeCount =
+        updatedSeasons[seasonIndex].episodes.length;
+      setSeasons(updatedSeasons);
+      setDeleteConfirm(null);
+      return;
+    }
+
+    // Call API to delete saved episode
+    setDeleting(true);
+    try {
+      const result = await deleteEpisodeApi(
+        filmId,
+        season.number,
+        episode.number
+      );
+      if (result.success) {
+        const updatedSeasons = [...seasons];
+        updatedSeasons[seasonIndex].episodes = season.episodes.filter(
+          (_, i) => i !== episodeIndex
+        );
+        updatedSeasons[seasonIndex].episodeCount =
+          updatedSeasons[seasonIndex].episodes.length;
+        setSeasons(updatedSeasons);
+        toast.success(
+          `Đã xóa tập ${episode.number} của mùa ${season.number}`
+        );
+      } else {
+        toast.error(result.error || "Lỗi khi xóa tập phim");
+      }
+    } catch (error) {
+      console.error("Error deleting episode:", error);
+      toast.error("Đã xảy ra lỗi khi xóa tập phim");
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(null);
+    }
+  };
+
+  const updateSeasonLocal = (index: number, updates: Partial<SeasonForm>) => {
     setSeasons(
-      seasons.map((season, i) => (i === index ? { ...season, ...updates } : season))
+      seasons.map((season, i) =>
+        i === index
+          ? { ...season, ...updates, hasChanges: season.isSaved ? true : false }
+          : season
+      )
     );
   };
 
-  const toggleSeasonExpanded = (index: number) => {
-    updateSeason(index, { isExpanded: !seasons[index].isExpanded });
+  const toggleSeasonEdit = (index: number) => {
+    setSeasons(
+      seasons.map((season, i) =>
+        i === index ? { ...season, isEditing: !season.isEditing } : season
+      )
+    );
   };
 
   const generateEpisodes = (index: number) => {
     const season = seasons[index];
-    const episodes: EpisodeForm[] = [];
-    
-    for (let i = 1; i <= season.episodeCount; i++) {
+    if (season.episodeCount <= 0) {
+      toast.error("Vui lòng nhập số lượng tập hợp lệ");
+      return;
+    }
+
+    // Keep existing episodes and add new ones
+    const existingCount = season.episodes.length;
+    const episodes: EpisodeForm[] = [...season.episodes];
+
+    for (let i = existingCount + 1; i <= season.episodeCount; i++) {
       episodes.push({
         number: i,
         isSaved: false,
+        isEditing: false,
+        hasChanges: false,
       });
     }
-    
-    updateSeason(index, { episodes });
+
+    updateSeasonLocal(index, { episodes });
+    toast.success(
+      `Đã tạo ${season.episodeCount - existingCount} tập mới cho mùa ${season.number}`
+    );
   };
 
-  const updateEpisode = (seasonIndex: number, episodeIndex: number, releaseDate: string) => {
+  const updateEpisodeLocal = (
+    seasonIndex: number,
+    episodeIndex: number,
+    updates: Partial<EpisodeForm>
+  ) => {
     const updatedSeasons = [...seasons];
-    updatedSeasons[seasonIndex].episodes[episodeIndex].releaseDate = releaseDate;
+    const episode = updatedSeasons[seasonIndex].episodes[episodeIndex];
+    updatedSeasons[seasonIndex].episodes[episodeIndex] = {
+      ...episode,
+      ...updates,
+      hasChanges: episode.isSaved ? true : false,
+    };
     setSeasons(updatedSeasons);
   };
 
+  // Save/Update season
   const saveSeason = async (index: number) => {
     const season = seasons[index];
-    if (season.isSaved) return;
 
+    setSavingSeasonIndex(index);
     setLoading(true);
+
     try {
-      // Create season
-      const seasonResult = await createSeason(filmId, {
-        releaseDate: season.releaseDate,
-        endDate: season.endDate,
-        status: season.status,
-      });
+      if (season.isSaved && season.hasChanges) {
+        // Update existing season
+        const updateResult = await updateSeasonApi(filmId, season.number, {
+          releaseDate: season.releaseDate,
+          endDate: season.endDate,
+          status: season.status,
+        });
 
-      if (!seasonResult.success) {
-        toast.error(seasonResult.error || "Lỗi khi tạo mùa phim");
-        setLoading(false);
-        return;
-      }
+        if (!updateResult.success) {
+          toast.error(updateResult.error || "Lỗi khi cập nhật mùa phim");
+          return;
+        }
 
-      // Create episodes for this season
-      for (const episode of season.episodes) {
-        if (!episode.isSaved) {
-          const episodeResult = await createEpisode(
-            filmId,
-            season.number,
-            { releaseDate: episode.releaseDate }
-          );
-
-          if (!episodeResult.success) {
-            toast.error(`Lỗi khi tạo tập ${episode.number}`);
-            continue;
+        // Update changed episodes
+        for (const episode of season.episodes) {
+          if (episode.isSaved && episode.hasChanges) {
+            await updateEpisodeApi(filmId, season.number, episode.number, {
+              releaseDate: episode.releaseDate,
+            });
+          } else if (!episode.isSaved) {
+            // Create new episodes
+            await createEpisode(filmId, season.number, {
+              releaseDate: episode.releaseDate,
+            });
           }
         }
-      }
 
-      updateSeason(index, { 
-        isSaved: true,
-        episodes: season.episodes.map(ep => ({ ...ep, isSaved: true }))
-      });
-      toast.success(`Đã lưu mùa ${season.number}`);
+        updateSeasonLocal(index, {
+          hasChanges: false,
+          isEditing: false,
+          episodes: season.episodes.map((ep) => ({
+            ...ep,
+            isSaved: true,
+            hasChanges: false,
+            isEditing: false,
+          })),
+        });
+        toast.success(`Đã cập nhật mùa ${season.number}`);
+      } else {
+        // Create new season
+        if (season.episodes.length === 0) {
+          toast.error("Vui lòng tạo ít nhất 1 tập cho mùa");
+          return;
+        }
+
+        const seasonResult = await createSeason(filmId, {
+          releaseDate: season.releaseDate,
+          endDate: season.endDate,
+          status: season.status,
+        });
+
+        if (!seasonResult.success) {
+          toast.error(seasonResult.error || "Lỗi khi tạo mùa phim");
+          return;
+        }
+
+        // Create episodes for this season
+        let successCount = 0;
+        for (const episode of season.episodes) {
+          if (!episode.isSaved) {
+            const episodeResult = await createEpisode(filmId, season.number, {
+              releaseDate: episode.releaseDate,
+            });
+
+            if (episodeResult.success) {
+              successCount++;
+            }
+          }
+        }
+
+        updateSeasonLocal(index, {
+          isSaved: true,
+          hasChanges: false,
+          episodes: season.episodes.map((ep) => ({
+            ...ep,
+            isSaved: true,
+            hasChanges: false,
+          })),
+        });
+        toast.success(`Đã lưu mùa ${season.number} với ${successCount} tập`);
+      }
     } catch (error) {
       console.error("Error saving season:", error);
       toast.error("Đã xảy ra lỗi không mong muốn");
+    } finally {
+      setLoading(false);
+      setSavingSeasonIndex(null);
+    }
+  };
+
+  // Save single episode update
+  const saveEpisode = async (seasonIndex: number, episodeIndex: number) => {
+    const season = seasons[seasonIndex];
+    const episode = season.episodes[episodeIndex];
+
+    if (!episode.hasChanges && episode.isSaved) return;
+
+    setLoading(true);
+    try {
+      if (episode.isSaved) {
+        // Update existing episode
+        const result = await updateEpisodeApi(
+          filmId,
+          season.number,
+          episode.number,
+          {
+            releaseDate: episode.releaseDate,
+          }
+        );
+
+        if (result.success) {
+          updateEpisodeLocal(seasonIndex, episodeIndex, {
+            hasChanges: false,
+            isEditing: false,
+          });
+          toast.success(`Đã cập nhật tập ${episode.number}`);
+        } else {
+          toast.error(result.error || "Lỗi khi cập nhật tập phim");
+        }
+      } else {
+        // Create new episode
+        const result = await createEpisode(filmId, season.number, {
+          releaseDate: episode.releaseDate,
+        });
+
+        if (result.success) {
+          updateEpisodeLocal(seasonIndex, episodeIndex, {
+            isSaved: true,
+            hasChanges: false,
+            isEditing: false,
+          });
+          toast.success(`Đã tạo tập ${episode.number}`);
+        } else {
+          toast.error(result.error || "Lỗi khi tạo tập phim");
+        }
+      }
+    } catch (error) {
+      console.error("Error saving episode:", error);
+      toast.error("Đã xảy ra lỗi khi lưu tập phim");
     } finally {
       setLoading(false);
     }
   };
 
   const saveAllSeasons = async () => {
+    const unsavedOrChanged = seasons.filter((s) => !s.isSaved || s.hasChanges);
+    if (unsavedOrChanged.length === 0) return;
+
     setLoading(true);
     for (let i = 0; i < seasons.length; i++) {
-      if (!seasons[i].isSaved) {
+      if (!seasons[i].isSaved || seasons[i].hasChanges) {
         await saveSeason(i);
       }
     }
     setLoading(false);
   };
 
-  const hasUnsavedChanges = seasons.some(s => !s.isSaved || s.episodes.some(ep => !ep.isSaved));
+  const hasUnsavedChanges = seasons.some((s) => !s.isSaved || s.hasChanges);
+  const totalEpisodes = seasons.reduce(
+    (acc, s) => acc + s.episodes.length,
+    0
+  );
 
   if (initialLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-2">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Đang tải thông tin mùa phim...</p>
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+          <p className="text-muted-foreground">
+            Đang tải thông tin mùa phim...
+          </p>
         </div>
       </div>
     );
@@ -206,85 +532,184 @@ export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3P
 
   return (
     <div className="space-y-6">
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={!!deleteConfirm}
+        onOpenChange={() => !deleting && setDeleteConfirm(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Xác nhận xóa
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteConfirm?.type === "season" ? (
+                <>
+                  Bạn có chắc chắn muốn xóa{" "}
+                  <strong>Mùa {deleteConfirm.seasonNumber}</strong>?
+                  {deleteConfirm.episodeCount && deleteConfirm.episodeCount > 0 && (
+                    <span className="block mt-2 text-destructive font-medium">
+                      ⚠️ Hành động này sẽ xóa tất cả{" "}
+                      {deleteConfirm.episodeCount} tập trong mùa này. Dữ liệu
+                      video đã tải lên cũng sẽ bị xóa và không thể khôi phục.
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Bạn có chắc chắn muốn xóa{" "}
+                  <strong>
+                    Tập {deleteConfirm?.episodeNumber} của Mùa{" "}
+                    {deleteConfirm?.seasonNumber}
+                  </strong>
+                  ?
+                  <span className="block mt-2 text-destructive font-medium">
+                    ⚠️ Video đã tải lên cho tập này cũng sẽ bị xóa và không
+                    thể khôi phục.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={
+                deleteConfirm?.type === "season"
+                  ? executeDeleteSeason
+                  : executeDeleteEpisode
+              }
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Xóa
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Summary Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Cấu hình mùa và tập phim</CardTitle>
-          <CardDescription>
-            Thêm các mùa phim và số lượng tập cho mỗi mùa
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Film className="h-5 w-5" />
+                Quản lý mùa và tập phim
+              </CardTitle>
+              <CardDescription>
+                Thêm, sửa, xóa các mùa phim và cấu hình số tập cho mỗi mùa
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">
+                  {seasons.length}
+                </p>
+                <p className="text-muted-foreground">Mùa</p>
+              </div>
+              <Separator orientation="vertical" className="h-10" />
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">
+                  {totalEpisodes}
+                </p>
+                <p className="text-muted-foreground">Tập</p>
+              </div>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+      </Card>
+
+      {/* Seasons List */}
+      {seasons.length > 0 && (
+        <Accordion
+          type="single"
+          collapsible
+          value={expandedSeason}
+          onValueChange={setExpandedSeason}
+          className="space-y-4"
+        >
           {seasons.map((season, seasonIndex) => (
-            <Card key={seasonIndex} className={season.isSaved ? "border-green-200" : ""}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+            <AccordionItem
+              key={seasonIndex}
+              value={`season-${seasonIndex}`}
+              className="border rounded-lg overflow-hidden"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
+                <div className="flex items-center justify-between w-full mr-4">
                   <div className="flex items-center gap-3">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => toggleSeasonExpanded(seasonIndex)}
+                    <div
+                      className={`h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                        season.isSaved && !season.hasChanges
+                          ? "bg-green-100 text-green-700"
+                          : season.hasChanges
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-primary/10 text-primary"
+                      }`}
                     >
-                      {season.isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </Button>
-                    <div>
-                      <CardTitle className="text-lg">
-                        Mùa {season.number}
-                      </CardTitle>
-                      {season.episodes.length > 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          {season.episodes.length} tập
-                        </p>
-                      )}
+                      {season.number}
                     </div>
-                    {season.isSaved && (
-                      <Badge variant="secondary" className="bg-green-100 text-green-700">
+                    <div className="text-left">
+                      <p className="font-semibold">Mùa {season.number}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {season.episodes.length} tập
+                        {season.releaseDate && ` • ${season.releaseDate}`}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {season.isSaved && !season.hasChanges ? (
+                      <Badge
+                        variant="secondary"
+                        className="bg-green-100 text-green-700 border-green-200"
+                      >
                         Đã lưu
+                      </Badge>
+                    ) : season.hasChanges ? (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-600 border-amber-300 bg-amber-50"
+                      >
+                        Có thay đổi
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-blue-600 border-blue-300 bg-blue-50"
+                      >
+                        Mới
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {!season.isSaved && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => saveSeason(seasonIndex)}
-                        disabled={loading || season.episodes.length === 0}
-                      >
-                        Lưu mùa
-                      </Button>
-                    )}
-                    {!season.isSaved && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeSeason(seasonIndex)}
-                        disabled={loading}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
                 </div>
-              </CardHeader>
-              {season.isExpanded && (
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4">
+                <div className="space-y-6 pt-2">
+                  {/* Season Info */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor={`season-${seasonIndex}-status`}>Trạng thái</Label>
+                      <Label>Trạng thái</Label>
                       <Select
                         value={season.status}
                         onValueChange={(value) =>
-                          updateSeason(seasonIndex, { status: value as SeasonStatus })
+                          updateSeasonLocal(seasonIndex, {
+                            status: value as SeasonStatus,
+                          })
                         }
-                        disabled={season.isSaved || loading}
+                        disabled={loading}
                       >
-                        <SelectTrigger id={`season-${seasonIndex}-status`}>
+                        <SelectTrigger>
                           <SelectValue placeholder="Chọn trạng thái" />
                         </SelectTrigger>
                         <SelectContent>
@@ -298,120 +723,272 @@ export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3P
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor={`season-${seasonIndex}-releaseDate`}>
-                        Ngày phát hành
-                      </Label>
+                      <Label>Ngày phát hành</Label>
                       <Input
-                        id={`season-${seasonIndex}-releaseDate`}
                         type="date"
                         value={season.releaseDate || ""}
                         onChange={(e) =>
-                          updateSeason(seasonIndex, { releaseDate: e.target.value })
+                          updateSeasonLocal(seasonIndex, {
+                            releaseDate: e.target.value,
+                          })
                         }
-                        disabled={season.isSaved || loading}
+                        disabled={loading}
                       />
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor={`season-${seasonIndex}-endDate`}>Ngày kết thúc</Label>
+                      <Label>Ngày kết thúc</Label>
                       <Input
-                        id={`season-${seasonIndex}-endDate`}
                         type="date"
                         value={season.endDate || ""}
                         onChange={(e) =>
-                          updateSeason(seasonIndex, { endDate: e.target.value })
+                          updateSeasonLocal(seasonIndex, {
+                            endDate: e.target.value,
+                          })
                         }
-                        disabled={season.isSaved || loading}
+                        disabled={loading}
                       />
                     </div>
-                  </div>
 
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <div className="flex items-end gap-2">
-                      <div className="flex-1 space-y-2">
-                        <Label htmlFor={`season-${seasonIndex}-episodeCount`}>
-                          Số lượng tập
-                        </Label>
+                    <div className="space-y-2">
+                      <Label>Số lượng tập</Label>
+                      <div className="flex gap-2">
                         <Input
-                          id={`season-${seasonIndex}-episodeCount`}
                           type="number"
                           min="1"
                           value={season.episodeCount || ""}
                           onChange={(e) =>
-                            updateSeason(seasonIndex, {
+                            updateSeasonLocal(seasonIndex, {
                               episodeCount: Number(e.target.value),
                             })
                           }
-                          placeholder="Nhập số lượng tập"
-                          disabled={season.isSaved || loading}
+                          placeholder="Nhập số tập"
+                          disabled={loading}
+                          className="flex-1"
                         />
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="icon"
+                          onClick={() => generateEpisodes(seasonIndex)}
+                          disabled={
+                            loading ||
+                            !season.episodeCount ||
+                            season.episodeCount <= season.episodes.length
+                          }
+                          title="Thêm tập mới"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        onClick={() => generateEpisodes(seasonIndex)}
-                        disabled={season.isSaved || loading || !season.episodeCount}
-                      >
-                        Tạo tập
-                      </Button>
                     </div>
+                  </div>
 
-                    {season.episodes.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Danh sách tập</Label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto p-2 border rounded-lg">
-                          {season.episodes.map((episode, episodeIndex) => (
-                            <div
-                              key={episodeIndex}
-                              className="flex items-center gap-2 p-2 border rounded"
-                            >
-                              <span className="font-medium min-w-15">
-                                Tập {episode.number}
-                              </span>
-                              <Input
-                                type="date"
-                                value={episode.releaseDate || ""}
-                                onChange={(e) =>
-                                  updateEpisode(
-                                    seasonIndex,
-                                    episodeIndex,
-                                    e.target.value
-                                  )
-                                }
-                                placeholder="Ngày phát hành"
-                                disabled={season.isSaved || loading}
-                                className="flex-1"
-                              />
-                            </div>
-                          ))}
+                  {/* Episodes Table */}
+                  {season.episodes.length > 0 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-base">
+                          Danh sách tập ({season.episodes.length})
+                        </Label>
+                      </div>
+                      <div className="border rounded-lg overflow-hidden">
+                        <div className="max-h-72 overflow-y-auto">
+                          <Table>
+                            <TableHeader className="sticky top-0 bg-background">
+                              <TableRow>
+                                <TableHead className="w-20">Tập</TableHead>
+                                <TableHead>Ngày phát hành</TableHead>
+                                <TableHead className="w-24 text-center">
+                                  Trạng thái
+                                </TableHead>
+                                <TableHead className="w-32 text-center">
+                                  Hành động
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {season.episodes.map((episode, episodeIndex) => (
+                                <TableRow key={episodeIndex}>
+                                  <TableCell className="font-medium">
+                                    Tập {episode.number}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="date"
+                                      value={episode.releaseDate || ""}
+                                      onChange={(e) =>
+                                        updateEpisodeLocal(
+                                          seasonIndex,
+                                          episodeIndex,
+                                          {
+                                            releaseDate: e.target.value,
+                                          }
+                                        )
+                                      }
+                                      disabled={loading}
+                                      className="w-auto"
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    {episode.isSaved && !episode.hasChanges ? (
+                                      <Badge
+                                        variant="secondary"
+                                        className="bg-green-100 text-green-700"
+                                      >
+                                        Đã lưu
+                                      </Badge>
+                                    ) : episode.hasChanges ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-amber-600"
+                                      >
+                                        Đã sửa
+                                      </Badge>
+                                    ) : (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-blue-600"
+                                      >
+                                        Mới
+                                      </Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <div className="flex items-center justify-center gap-1">
+                                      {(episode.hasChanges ||
+                                        !episode.isSaved) && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() =>
+                                            saveEpisode(
+                                              seasonIndex,
+                                              episodeIndex
+                                            )
+                                          }
+                                          disabled={loading}
+                                          title="Lưu tập"
+                                        >
+                                          <Save className="h-4 w-4" />
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() =>
+                                          confirmDeleteEpisode(
+                                            seasonIndex,
+                                            episodeIndex
+                                          )
+                                        }
+                                        disabled={loading}
+                                        className="text-destructive hover:text-destructive"
+                                        title="Xóa tập"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
                       </div>
-                    )}
+                    </div>
+                  )}
+
+                  {/* Season Actions */}
+                  <div className="flex justify-between gap-2 pt-2 border-t">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => confirmDeleteSeason(seasonIndex)}
+                      disabled={loading}
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Xóa mùa
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => saveSeason(seasonIndex)}
+                      disabled={
+                        loading ||
+                        (season.isSaved &&
+                          !season.hasChanges &&
+                          !season.episodes.some(
+                            (e) => !e.isSaved || e.hasChanges
+                          ))
+                      }
+                    >
+                      {savingSeasonIndex === seasonIndex ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Đang lưu...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          {season.isSaved ? "Cập nhật mùa" : "Lưu mùa"}{" "}
+                          {season.number}
+                        </>
+                      )}
+                    </Button>
                   </div>
-                </CardContent>
-              )}
-            </Card>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
           ))}
+        </Accordion>
+      )}
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={addSeason}
-            disabled={loading}
-            className="w-full"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Thêm mùa mới
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Empty State */}
+      {seasons.length === 0 && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Film className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-1">Chưa có mùa nào</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Thêm mùa đầu tiên cho phim bộ của bạn
+            </p>
+            <Button onClick={addSeason}>
+              <Plus className="h-4 w-4 mr-2" />
+              Thêm mùa đầu tiên
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-      <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={onBack} disabled={loading}>
-          Quay lại
+      {/* Add Season Button */}
+      {seasons.length > 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addSeason}
+          disabled={loading}
+          className="w-full"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Thêm mùa mới
         </Button>
-        <div className="flex gap-2">
+      )}
+
+      {/* Navigation */}
+      <div className="flex justify-between items-center pt-4 border-t">
+        <p className="text-sm text-muted-foreground">
+          {hasUnsavedChanges
+            ? "Có thay đổi chưa được lưu. Vui lòng lưu trước khi tiếp tục."
+            : seasons.length > 0
+              ? "Tất cả mùa đã được lưu."
+              : "Bạn có thể bỏ qua bước này và thêm mùa sau."}
+        </p>
+        <div className="flex gap-3">
           {hasUnsavedChanges && (
             <Button
               type="button"
@@ -419,7 +996,17 @@ export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3P
               onClick={saveAllSeasons}
               disabled={loading}
             >
-              {loading ? "Đang lưu..." : "Lưu tất cả"}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang lưu...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Lưu tất cả
+                </>
+              )}
             </Button>
           )}
           <Button
@@ -427,7 +1014,8 @@ export function MovieFormStep3Series({ filmId, onNext, onBack }: MovieFormStep3P
             onClick={onNext}
             disabled={loading || hasUnsavedChanges}
           >
-            {seasons.length === 0 ? "Bỏ qua" : "Tiếp theo"}
+            Tiếp theo
+            <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
       </div>

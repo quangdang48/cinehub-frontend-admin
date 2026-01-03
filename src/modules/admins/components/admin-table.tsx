@@ -26,10 +26,11 @@ import { banAdmin, unbanAdmin } from "../actions";
 import type { Admin, Gender } from "../types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTableWrapper, type Column } from "@/components/shared/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
 import { PaginatedApiResponse } from "@/types/api";
+import { normalizeUrl } from "@/lib/utils";
 
 interface AdminTableProps {
     data: PaginatedApiResponse<Admin>;
@@ -128,6 +129,7 @@ export function AdminTable({ data, onEdit }: AdminTableProps) {
             render: (admin: Admin) => (
                 <div className="flex items-center gap-3">
                     <Avatar className="h-9 w-9">
+                        <AvatarImage src={admin.avatarUrl ? normalizeUrl(admin.avatarUrl) : undefined} alt={admin.name} />
                         <AvatarFallback className="bg-primary/10">
                             {getInitials(admin.name)}
                         </AvatarFallback>

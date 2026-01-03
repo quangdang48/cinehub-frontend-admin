@@ -1,450 +1,890 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ageLimitOptions, statusOptions, typeOptions } from "../const";
-import type { CreateMovieDto, AgeLimit, FilmStatus, FilmType, Genre, Director, Actor, UpdateCastDto } from "../types";
-import { useState } from "react";
-import { X, Plus } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Field, FieldError, FieldLabel, FieldDescription } from "@/components/ui/field";
+import { Loader2, X, Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  Movie,
+  Genre,
+  Director,
+  Actor,
+  AgeLimit,
+  FilmStatus,
+  FilmType,
+  UpdateCastDto,
+} from "../types";
+import { statusOptions, typeOptions, ageLimitOptions } from "../const";
+import { searchGenres, searchDirectors, searchActors } from "../actions";
+import { useDebounce } from "@/hooks/use-debounce";
 
-export interface MovieFormStep1Data {
-  title: string;
-  originalTitle: string;
-  englishTitle: string;
-  description?: string;
-  ageLimit: AgeLimit;
-  country: string;
-  releaseDate: string;
-  status: FilmStatus;
-  type: FilmType;
-  imdbRating?: number;
-  directors?: string[];
-  genres?: string[];
-  casts?: UpdateCastDto[];
-}
+// Schema validation
+const movieFormSchema = z.object({
+  title: z.string().min(1, "Tên phim là bắt buộc"),
+  originalTitle: z.string().min(1, "Tên gốc là bắt buộc"),
+  englishTitle: z.string().min(1, "Tên tiếng Anh là bắt buộc"),
+  description: z.string().optional(),
+  releaseDate: z.string().min(1, "Ngày phát hành là bắt buộc"),
+  country: z.string().min(1, "Quốc gia là bắt buộc"),
+  ageLimit: z.enum(AgeLimit),
+  status: z.enum(FilmStatus),
+  type: z.enum(FilmType),
+  imdbRating: z.coerce.number().min(0).max(10).optional(),
+  genres: z.array(z.string()).min(0),
+  directors: z.array(z.string()).min(0),
+  casts: z.array(z.object({
+    actorId: z.string(),
+    character: z.string().min(1, "Tên nhân vật là bắt buộc"),
+  })).min(0),
+});
+
+export type MovieFormStep1Data = z.infer<typeof movieFormSchema>;
 
 interface MovieFormStep1Props {
-  initialData?: Partial<MovieFormStep1Data>;
+  initialData?: MovieFormStep1Data;
   genres: Genre[];
   directors: Director[];
   actors: Actor[];
-  onNext: (data: MovieFormStep1Data) => void;
-  isLoading?: boolean;
+  onNext: (data: MovieFormStep1Data) => Promise<void>;
+  onCancel: () => void;
+  isLoading: boolean;
+  isEditing: boolean;
 }
 
 export function MovieFormStep1({
   initialData,
-  genres,
-  directors,
-  actors,
+  genres: initialGenres,
+  directors: initialDirectors,
+  actors: initialActors,
   onNext,
+  onCancel,
   isLoading,
+  isEditing,
 }: MovieFormStep1Props) {
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<MovieFormStep1Data>({
+  // Search states
+  const [genreSearch, setGenreSearch] = useState("");
+  const [directorSearch, setDirectorSearch] = useState("");
+  const [actorSearch, setActorSearch] = useState("");
+
+  // Debounced search values
+  const debouncedGenreSearch = useDebounce(genreSearch, 300);
+  const debouncedDirectorSearch = useDebounce(directorSearch, 300);
+  const debouncedActorSearch = useDebounce(actorSearch, 300);
+
+  // Search results
+  const [genres, setGenres] = useState<Genre[]>(initialGenres);
+  const [directors, setDirectors] = useState<Director[]>(initialDirectors);
+  const [actors, setActors] = useState<Actor[]>(initialActors);
+
+  // Loading states
+  const [isLoadingGenres, setIsLoadingGenres] = useState(false);
+  const [isLoadingDirectors, setIsLoadingDirectors] = useState(false);
+  const [isLoadingActors, setIsLoadingActors] = useState(false);
+
+  // Popover open states
+  const [genreOpen, setGenreOpen] = useState(false);
+  const [directorOpen, setDirectorOpen] = useState(false);
+  const [actorOpen, setActorOpen] = useState(false);
+
+  // Character input for cast
+  const [characterInputs, setCharacterInputs] = useState<Record<string, string>>({});
+
+  // Fetch genres when search changes
+  useEffect(() => {
+    const fetchGenres = async () => {
+      setIsLoadingGenres(true);
+      try {
+        const result = await searchGenres(debouncedGenreSearch);
+        setGenres(result);
+      } catch (error) {
+        console.error("Error fetching genres:", error);
+      } finally {
+        setIsLoadingGenres(false);
+      }
+    };
+
+    if (debouncedGenreSearch) {
+      fetchGenres();
+    } else {
+      setGenres(initialGenres);
+    }
+  }, [debouncedGenreSearch, initialGenres]);
+
+  // Fetch directors when search changes
+  useEffect(() => {
+    const fetchDirectors = async () => {
+      setIsLoadingDirectors(true);
+      try {
+        const result = await searchDirectors(debouncedDirectorSearch);
+        setDirectors(result);
+      } catch (error) {
+        console.error("Error fetching directors:", error);
+      } finally {
+        setIsLoadingDirectors(false);
+      }
+    };
+
+    if (debouncedDirectorSearch) {
+      fetchDirectors();
+    } else {
+      setDirectors(initialDirectors);
+    }
+  }, [debouncedDirectorSearch, initialDirectors]);
+
+  // Fetch actors when search changes
+  useEffect(() => {
+    const fetchActors = async () => {
+      setIsLoadingActors(true);
+      try {
+        const result = await searchActors(debouncedActorSearch);
+        setActors(result);
+      } catch (error) {
+        console.error("Error fetching actors:", error);
+      } finally {
+        setIsLoadingActors(false);
+      }
+    };
+
+    if (debouncedActorSearch) {
+      fetchActors();
+    } else {
+      setActors(initialActors);
+    }
+  }, [debouncedActorSearch, initialActors]);
+
+  // Initialize character inputs from initialData
+  useEffect(() => {
+    if (initialData?.casts) {
+      const inputs: Record<string, string> = {};
+      initialData.casts.forEach((cast) => {
+        inputs[cast.actorId] = cast.character;
+      });
+      setCharacterInputs(inputs);
+    }
+  }, [initialData]);
+
+  const form = useForm<MovieFormStep1Data>({
+    resolver: zodResolver(movieFormSchema) as any,
     defaultValues: initialData || {
-      ageLimit: "ALL" as AgeLimit,
-      status: "UPCOMING" as FilmStatus,
-      type: "MOVIE" as FilmType,
-      directors: [],
+      title: "",
+      originalTitle: "",
+      englishTitle: "",
+      description: "",
+      releaseDate: "",
+      country: "",
+      ageLimit: AgeLimit.ALL,
+      status: FilmStatus.UPCOMING,
+      type: FilmType.MOVIE,
+      imdbRating: undefined,
       genres: [],
+      directors: [],
       casts: [],
     },
   });
 
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(initialData?.genres || []);
-  const [selectedDirectors, setSelectedDirectors] = useState<string[]>(initialData?.directors || []);
-  const [selectedCasts, setSelectedCasts] = useState<UpdateCastDto[]>(initialData?.casts || []);
-  const [newCast, setNewCast] = useState({ actorId: "", character: "" });
-
-  const handleAddGenre = (genreId: string) => {
-    if (genreId && !selectedGenres.includes(genreId)) {
-      const updatedGenres = [...selectedGenres, genreId];
-      setSelectedGenres(updatedGenres);
-      setValue("genres", updatedGenres);
-    }
+  const handleSubmit = async (values: MovieFormStep1Data) => {
+    await onNext(values);
   };
 
-  const handleRemoveGenre = (genreId: string) => {
-    const updatedGenres = selectedGenres.filter((g) => g !== genreId);
-    setSelectedGenres(updatedGenres);
-    setValue("genres", updatedGenres);
+  // Helper to get name by id
+  const getGenreName = (id: string) => {
+    const genre =
+      genres.find((g) => g.id === id) ||
+      initialGenres.find((g) => g.id === id);
+    return genre?.name || id;
   };
 
-  const handleAddDirector = (directorId: string) => {
-    if (directorId && !selectedDirectors.includes(directorId)) {
-      const updatedDirectors = [...selectedDirectors, directorId];
-      setSelectedDirectors(updatedDirectors);
-      setValue("directors", updatedDirectors);
-    }
+  const getDirectorName = (id: string) => {
+    const director =
+      directors.find((d) => d.id === id) ||
+      initialDirectors.find((d) => d.id === id);
+    return director?.name || id;
   };
 
-  const handleRemoveDirector = (directorId: string) => {
-    const updatedDirectors = selectedDirectors.filter((d) => d !== directorId);
-    setSelectedDirectors(updatedDirectors);
-    setValue("directors", updatedDirectors);
+  const getActorName = (id: string) => {
+    const actor =
+      actors.find((a) => a.id === id) ||
+      initialActors.find((a) => a.id === id);
+    return actor?.name || id;
   };
-
-  const handleAddCast = () => {
-    if (newCast.actorId && newCast.character) {
-      const updatedCasts = [...selectedCasts, newCast];
-      setSelectedCasts(updatedCasts);
-      setValue("casts", updatedCasts);
-      setNewCast({ actorId: "", character: "" });
-    }
-  };
-
-  const handleRemoveCast = (index: number) => {
-    const updatedCasts = selectedCasts.filter((_, i) => i !== index);
-    setSelectedCasts(updatedCasts);
-    setValue("casts", updatedCasts);
-  };
-
-  const onSubmit = (data: MovieFormStep1Data) => {
-    onNext({
-      ...data,
-      genres: selectedGenres,
-      directors: selectedDirectors,
-      casts: selectedCasts,
-    });
-  };
-
-  const selectedType = watch("type");
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Thông tin cơ bản</CardTitle>
-          <CardDescription>Nhập thông tin cơ bản về phim</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">
-                Tiêu đề <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="title"
-                {...register("title", { required: "Tiêu đề là bắt buộc" })}
-                placeholder="Nhập tiêu đề phim"
-              />
-              {errors.title && (
-                <p className="text-sm text-destructive">{errors.title.message}</p>
+        <CardContent className="pt-6 space-y-6">
+          {/* Basic Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Title */}
+            <Controller
+              name="title"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Tên phim *</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="Nhập tên phim"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
               )}
-            </div>
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="originalTitle">
-                Tiêu đề gốc <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="originalTitle"
-                {...register("originalTitle", { required: "Tiêu đề gốc là bắt buộc" })}
-                placeholder="Nhập tiêu đề gốc"
-              />
-              {errors.originalTitle && (
-                <p className="text-sm text-destructive">{errors.originalTitle.message}</p>
+            {/* Original Title */}
+            <Controller
+              name="originalTitle"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Tên gốc *</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="Nhập tên gốc"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
               )}
-            </div>
+            />
 
-            <div className="space-y-2">
-              <Label htmlFor="englishTitle">
-                Tiêu đề tiếng Anh <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="englishTitle"
-                {...register("englishTitle", { required: "Tiêu đề tiếng Anh là bắt buộc" })}
-                placeholder="Nhập tiêu đề tiếng Anh"
-              />
-              {errors.englishTitle && (
-                <p className="text-sm text-destructive">{errors.englishTitle.message}</p>
+            {/* English Title */}
+            <Controller
+              name="englishTitle"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Tên tiếng Anh *</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="Nhập tên tiếng Anh"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="country">
-                Quốc gia <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="country"
-                {...register("country", { required: "Quốc gia là bắt buộc" })}
-                placeholder="Ví dụ: USA, Vietnam"
-              />
-              {errors.country && (
-                <p className="text-sm text-destructive">{errors.country.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="releaseDate">
-                Ngày phát hành <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="releaseDate"
-                type="date"
-                {...register("releaseDate", { required: "Ngày phát hành là bắt buộc" })}
-              />
-              {errors.releaseDate && (
-                <p className="text-sm text-destructive">{errors.releaseDate.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="imdbRating">Đánh giá IMDb</Label>
-              <Input
-                id="imdbRating"
-                type="number"
-                step="0.1"
-                min="0"
-                max="10"
-                {...register("imdbRating", {
-                  valueAsNumber: true,
-                  min: 0,
-                  max: 10,
-                })}
-                placeholder="Ví dụ: 8.5"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">
-                Loại phim <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={watch("type")}
-                onValueChange={(value) => setValue("type", value as FilmType)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại phim" />
-                </SelectTrigger>
-                <SelectContent>
-                  {typeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">
-                Trạng thái <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={watch("status")}
-                onValueChange={(value) => setValue("status", value as FilmStatus)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="ageLimit">
-                Giới hạn độ tuổi <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={watch("ageLimit")}
-                onValueChange={(value) => setValue("ageLimit", value as AgeLimit)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn giới hạn độ tuổi" />
-                </SelectTrigger>
-                <SelectContent>
-                  {ageLimitOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description">Mô tả</Label>
-            <Textarea
-              id="description"
-              {...register("description")}
-              placeholder="Nhập mô tả về phim"
-              rows={4}
             />
           </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Thể loại</CardTitle>
-          <CardDescription>Chọn các thể loại cho phim</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Select onValueChange={handleAddGenre}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Chọn thể loại" />
-              </SelectTrigger>
-              <SelectContent>
-                {genres
-                  .filter((genre) => !selectedGenres.includes(genre.id))
-                  .map((genre) => (
-                    <SelectItem key={genre.id} value={genre.id}>
-                      {genre.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedGenres.map((genreId) => {
-              const genre = genres.find((g) => g.id === genreId);
-              return genre ? (
-                <Badge key={genreId} variant="secondary">
-                  {genre.name}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveGenre(genreId)}
-                    className="ml-2 hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ) : null;
-            })}
-          </div>
-        </CardContent>
-      </Card>
+          {/* Description */}
+          <Controller
+            name="description"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel htmlFor={field.name}>Mô tả</FieldLabel>
+                <Textarea
+                  {...field}
+                  id={field.name}
+                  placeholder="Nhập mô tả phim"
+                  className="min-h-25"
+                  aria-invalid={fieldState.invalid}
+                />
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Đạo diễn</CardTitle>
-          <CardDescription>Chọn các đạo diễn cho phim</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Select onValueChange={handleAddDirector}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Chọn đạo diễn" />
-              </SelectTrigger>
-              <SelectContent>
-                {directors
-                  .filter((director) => !selectedDirectors.includes(director.id))
-                  .map((director) => (
-                    <SelectItem key={director.id} value={director.id}>
-                      {director.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {selectedDirectors.map((directorId) => {
-              const director = directors.find((d) => d.id === directorId);
-              return director ? (
-                <Badge key={directorId} variant="secondary">
-                  {director.name}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveDirector(directorId)}
-                    className="ml-2 hover:text-destructive"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ) : null;
-            })}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Diễn viên</CardTitle>
-          <CardDescription>Thêm diễn viên và vai diễn của họ</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Select
-              value={newCast.actorId}
-              onValueChange={(value) => setNewCast({ ...newCast, actorId: value })}
-            >
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Chọn diễn viên" />
-              </SelectTrigger>
-              <SelectContent>
-                {actors.map((actor) => (
-                  <SelectItem key={actor.id} value={actor.id}>
-                    {actor.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              placeholder="Vai diễn"
-              value={newCast.character}
-              onChange={(e) => setNewCast({ ...newCast, character: e.target.value })}
-              className="flex-1"
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Country */}
+            <Controller
+              name="country"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Quốc gia *</FieldLabel>
+                  <Input
+                    {...field}
+                    id={field.name}
+                    placeholder="Nhập quốc gia"
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
             />
-            <Button
-              type="button"
-              onClick={handleAddCast}
-              disabled={!newCast.actorId || !newCast.character}
-              size="icon"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+
+            {/* Release Date */}
+            <Controller
+              name="releaseDate"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Ngày phát hành *</FieldLabel>
+                  <Input
+                    {...field}
+                    type="date"
+                    id={field.name}
+                    aria-invalid={fieldState.invalid}
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
+            {/* IMDB Rating */}
+            <Controller
+              name="imdbRating"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Điểm IMDB</FieldLabel>
+                  <Input
+                    {...field}
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    id={field.name}
+                    placeholder="0.0 - 10.0"
+                    aria-invalid={fieldState.invalid}
+                    value={field.value ?? ""}
+                    onChange={(e) =>
+                      field.onChange(
+                        e.target.value ? parseFloat(e.target.value) : undefined
+                      )
+                    }
+                  />
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
+            {/* Age Limit */}
+            <Controller
+              name="ageLimit"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Giới hạn tuổi *</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                    >
+                      <SelectValue placeholder="Chọn giới hạn tuổi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ageLimitOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
           </div>
-          <div className="space-y-2">
-            {selectedCasts.map((cast, index) => {
-              const actor = actors.find((a) => a.id === cast.actorId);
-              return actor ? (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-2 border rounded-md"
-                >
-                  <div>
-                    <p className="font-medium">{actor.name}</p>
-                    <p className="text-sm text-muted-foreground">{cast.character}</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Type */}
+            <Controller
+              name="type"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Loại phim *</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                    >
+                      <SelectValue placeholder="Chọn loại phim" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {typeOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+
+            {/* Status */}
+            <Controller
+              name="status"
+              control={form.control}
+              render={({ field, fieldState }) => (
+                <Field data-invalid={fieldState.invalid}>
+                  <FieldLabel htmlFor={field.name}>Trạng thái *</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                    >
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {fieldState.invalid && (
+                    <FieldError errors={[fieldState.error]} />
+                  )}
+                </Field>
+              )}
+            />
+          </div>
+
+          {/* Genre Selection - Combobox Multi-select */}
+          <Controller
+            name="genres"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel>Thể loại *</FieldLabel>
+                <Popover open={genreOpen} onOpenChange={setGenreOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={genreOpen}
+                      className={cn(
+                        "w-full justify-between min-h-10 h-auto",
+                        !field.value?.length && "text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex flex-wrap gap-1">
+                        {field.value?.length > 0 ? (
+                          field.value.map((id: string) => (
+                            <Badge key={id} variant="secondary" className="mr-1">
+                              {getGenreName(id)}
+                              <div
+                                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  field.onChange(
+                                    field.value?.filter((v: string) => v !== id)
+                                  );
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </div>
+                            </Badge>
+                          ))
+                        ) : (
+                          <span>Chọn thể loại...</span>
+                        )}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Tìm thể loại..."
+                        value={genreSearch}
+                        onValueChange={setGenreSearch}
+                      />
+                      <CommandList>
+                        {isLoadingGenres ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="ml-2">Đang tìm kiếm...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <CommandEmpty>Không tìm thấy thể loại.</CommandEmpty>
+                            <CommandGroup>
+                              {genres.map((genre) => (
+                                <CommandItem
+                                  key={genre.id}
+                                  value={genre.id}
+                                  onSelect={() => {
+                                    const current = field.value || [];
+                                    if (current.includes(genre.id)) {
+                                      field.onChange(
+                                        current.filter((v: string) => v !== genre.id)
+                                      );
+                                    } else {
+                                      field.onChange([...current, genre.id]);
+                                    }
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value?.includes(genre.id)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {genre.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          {/* Director Selection - Combobox Multi-select */}
+          <Controller
+            name="directors"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel>Đạo diễn *</FieldLabel>
+                <Popover open={directorOpen} onOpenChange={setDirectorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={directorOpen}
+                      className={cn(
+                        "w-full justify-between min-h-10 h-auto",
+                        !field.value?.length && "text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex flex-wrap gap-1">
+                        {field.value?.length > 0 ? (
+                          field.value.map((id: string) => (
+                            <Badge key={id} variant="secondary" className="mr-1">
+                              {getDirectorName(id)}
+                              <div
+                                className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  field.onChange(
+                                    field.value?.filter((v: string) => v !== id)
+                                  );
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </div>
+                            </Badge>
+                          ))
+                        ) : (
+                          <span>Chọn đạo diễn...</span>
+                        )}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Tìm đạo diễn..."
+                        value={directorSearch}
+                        onValueChange={setDirectorSearch}
+                      />
+                      <CommandList>
+                        {isLoadingDirectors ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="ml-2">Đang tìm kiếm...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <CommandEmpty>
+                              Không tìm thấy đạo diễn.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {directors.map((director) => (
+                                <CommandItem
+                                  key={director.id}
+                                  value={director.id}
+                                  onSelect={() => {
+                                    const current = field.value || [];
+                                    if (current.includes(director.id)) {
+                                      field.onChange(
+                                        current.filter(
+                                          (v: string) => v !== director.id
+                                        )
+                                      );
+                                    } else {
+                                      field.onChange([...current, director.id]);
+                                    }
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      field.value?.includes(director.id)
+                                        ? "opacity-100"
+                                        : "opacity-0"
+                                    )}
+                                  />
+                                  {director.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          {/* Actor/Cast Selection - Combobox Multi-select with Character Input */}
+          <Controller
+            name="casts"
+            control={form.control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid}>
+                <FieldLabel>Diễn viên *</FieldLabel>
+                <FieldDescription>
+                  Chọn diễn viên và nhập tên vai diễn cho mỗi người
+                </FieldDescription>
+                <Popover open={actorOpen} onOpenChange={setActorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={actorOpen}
+                      className={cn(
+                        "w-full justify-between min-h-10 h-auto",
+                        !field.value?.length && "text-muted-foreground"
+                      )}
+                    >
+                      <div className="flex flex-wrap gap-1">
+                        {field.value?.length > 0 ? (
+                          <span>
+                            Đã chọn {field.value.length} diễn viên
+                          </span>
+                        ) : (
+                          <span>Chọn diễn viên...</span>
+                        )}
+                      </div>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Tìm diễn viên..."
+                        value={actorSearch}
+                        onValueChange={setActorSearch}
+                      />
+                      <CommandList>
+                        {isLoadingActors ? (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="ml-2">Đang tìm kiếm...</span>
+                          </div>
+                        ) : (
+                          <>
+                            <CommandEmpty>
+                              Không tìm thấy diễn viên.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {actors.map((actor) => {
+                                const isSelected = field.value?.some(
+                                  (c: UpdateCastDto) => c.actorId === actor.id
+                                );
+                                return (
+                                  <CommandItem
+                                    key={actor.id}
+                                    value={actor.id}
+                                    onSelect={() => {
+                                      const current = field.value || [];
+                                      if (isSelected) {
+                                        field.onChange(
+                                          current.filter(
+                                            (c: UpdateCastDto) =>
+                                              c.actorId !== actor.id
+                                          )
+                                        );
+                                        const newInputs = { ...characterInputs };
+                                        delete newInputs[actor.id];
+                                        setCharacterInputs(newInputs);
+                                      } else {
+                                        field.onChange([
+                                          ...current,
+                                          {
+                                            actorId: actor.id,
+                                            character:
+                                              characterInputs[actor.id] || "",
+                                          },
+                                        ]);
+                                      }
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        isSelected ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {actor.name}
+                                  </CommandItem>
+                                );
+                              })}
+                            </CommandGroup>
+                          </>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Selected Actors with Character Input */}
+                {field.value?.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {field.value.map((cast: UpdateCastDto) => (
+                      <div
+                        key={cast.actorId}
+                        className="flex items-center gap-2 p-2 border rounded-lg"
+                      >
+                        <Badge variant="secondary" className="shrink-0">
+                          {getActorName(cast.actorId)}
+                        </Badge>
+                        <Input
+                          placeholder="Tên vai diễn..."
+                          value={characterInputs[cast.actorId] || cast.character}
+                          onChange={(e) => {
+                            const newInputs = {
+                              ...characterInputs,
+                              [cast.actorId]: e.target.value,
+                            };
+                            setCharacterInputs(newInputs);
+                            // Update form value
+                            const updated = field.value.map((c: UpdateCastDto) =>
+                              c.actorId === cast.actorId
+                                ? { ...c, character: e.target.value }
+                                : c
+                            );
+                            field.onChange(updated);
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            field.onChange(
+                              field.value.filter(
+                                (c: UpdateCastDto) => c.actorId !== cast.actorId
+                              )
+                            );
+                            const newInputs = { ...characterInputs };
+                            delete newInputs[cast.actorId];
+                            setCharacterInputs(newInputs);
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveCast(index)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : null;
-            })}
-          </div>
+                )}
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
         </CardContent>
       </Card>
 
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Hủy
+        </Button>
         <Button type="submit" disabled={isLoading}>
-          {isLoading ? "Đang xử lý..." : "Tiếp theo"}
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Đang lưu...
+            </>
+          ) : isEditing ? (
+            "Cập nhật & Tiếp tục"
+          ) : (
+            "Tạo phim & Tiếp tục"
+          )}
         </Button>
       </div>
     </form>

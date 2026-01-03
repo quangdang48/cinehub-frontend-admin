@@ -1,50 +1,141 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, Video, CheckCircle2, AlertCircle } from "lucide-react";
-import { API_URL } from "@/config";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Upload, Video, Trash2, Loader2, CheckCircle, AlertCircle, Film } from "lucide-react";
 import { toast } from "sonner";
-import { FilmType, Season } from "../types";
-import { getSeasons } from "../actions";
+import { API_URL } from "@/config";
+import { getSeasons, checkVideoStatus, deleteVideo } from "../actions";
+import { FilmType } from "../types";
+import type { Season } from "../types";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { VideoPlayer } from "@/components/shared/video-player/video-player";
 
 interface MovieFormStep4Props {
   filmId: string;
   filmType: FilmType;
   onComplete: () => void;
-  onBack: () => void;
 }
 
-export function MovieFormStep4({ filmId, filmType, onComplete, onBack }: MovieFormStep4Props) {
+export function MovieFormStep4({
+  filmId,
+  filmType,
+  onComplete,
+}: MovieFormStep4Props) {
   const { data: session } = useSession();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">(
-    "idle"
-  );
+  const [uploadStatus, setUploadStatus] = useState<
+    "idle" | "uploading" | "success" | "error"
+  >("idle");
+  
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedSeason, setSelectedSeason] = useState<number | undefined>();
   const [selectedEpisode, setSelectedEpisode] = useState<number | undefined>();
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
+  
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [checkingVideo, setCheckingVideo] = useState(false);
+  
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
+  // Load seasons structure or check movie video on mount
   useEffect(() => {
     if (filmType === FilmType.SERIES) {
       loadSeasons();
+    } else {
+      checkCurrentVideo();
     }
   }, [filmId, filmType]);
 
+  // Check video when selection changes (Series)
+  useEffect(() => {
+    if (filmType === FilmType.SERIES) {
+      if (selectedSeason && selectedEpisode) {
+        checkCurrentVideo();
+      } else {
+        setVideoUrl(null);
+      }
+    }
+  }, [selectedSeason, selectedEpisode]);
+
   const loadSeasons = async () => {
-    const data = await getSeasons(filmId);
-    setSeasons(data);
+    setLoadingSeasons(true);
+    try {
+      const data = await getSeasons(filmId);
+      setSeasons(data);
+    } catch (error) {
+      console.error("Error loading seasons:", error);
+      toast.error("Lỗi khi tải danh sách mùa");
+    } finally {
+      setLoadingSeasons(false);
+    }
+  };
+
+  const checkCurrentVideo = async () => {
+    setCheckingVideo(true);
+    setVideoUrl(null);
+    try {
+      const result = await checkVideoStatus(filmId, selectedSeason, selectedEpisode);
+      if (result.hasVideo) {
+        let url = `/api/stream?filmId=${filmId}`;
+        if (selectedSeason) url += `&season=${selectedSeason}`;
+        if (selectedEpisode) url += `&episode=${selectedEpisode}`;
+        setVideoUrl(url);
+      }
+    } catch (error) {
+      console.error("Error checking video:", error);
+    } finally {
+      setCheckingVideo(false);
+    }
   };
 
   const handleFileSelect = (selectedFile: File) => {
+    // Validate file type
+    const validTypes = [
+      "video/mp4",
+      "video/x-matroska",
+      "video/avi",
+      "video/quicktime",
+      "video/webm",
+    ];
+    if (
+      !validTypes.some((type) => selectedFile.type.includes(type.split("/")[1]))
+    ) {
+      toast.error(
+        "Định dạng không hỗ trợ. Vui lòng chọn file MP4, MKV, AVI, MOV hoặc WebM"
+      );
+      return;
+    }
+
     setFile(selectedFile);
     setUploadStatus("idle");
     setUploadProgress(0);
@@ -58,6 +149,12 @@ export function MovieFormStep4({ filmId, filmType, onComplete, onBack }: MovieFo
 
   const handleUpload = async () => {
     if (!file || !session?.accessToken) return;
+
+    // Validate selection for series
+    if (filmType === FilmType.SERIES && (!selectedSeason || !selectedEpisode)) {
+      toast.error("Vui lòng chọn mùa và tập trước khi upload");
+      return;
+    }
 
     setUploading(true);
     setUploadStatus("uploading");
@@ -89,11 +186,26 @@ export function MovieFormStep4({ filmId, filmType, onComplete, onBack }: MovieFo
       xhr.addEventListener("load", () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           setUploadStatus("success");
-          toast.success("Upload video thành công");
+          toast.success("Upload video thành công! Video đang được xử lý.");
+
+          // Refresh video status
+          setTimeout(() => {
+            checkCurrentVideo();
+          }, 2000);
+
+          // Clear file after successful upload
+          setTimeout(() => {
+            setFile(null);
+            setUploadStatus("idle");
+          }, 3000);
         } else {
           setUploadStatus("error");
-          const response = JSON.parse(xhr.responseText);
-          toast.error(response.message || "Lỗi khi upload video");
+          try {
+            const response = JSON.parse(xhr.responseText);
+            toast.error(response.message || "Lỗi khi upload video");
+          } catch {
+            toast.error("Lỗi khi upload video");
+          }
         }
         setUploading(false);
       });
@@ -104,20 +216,34 @@ export function MovieFormStep4({ filmId, filmType, onComplete, onBack }: MovieFo
         setUploading(false);
       });
 
-      xhr.addEventListener("abort", () => {
-        setUploadStatus("idle");
-        toast.info("Upload đã bị hủy");
-        setUploading(false);
-      });
-
       xhr.open("POST", url);
       xhr.setRequestHeader("Authorization", `Bearer ${session.accessToken}`);
       xhr.send(formData);
     } catch (error) {
       console.error("Upload error:", error);
       setUploadStatus("error");
-      toast.error(error instanceof Error ? error.message : "Lỗi khi upload video");
+      toast.error("Lỗi khi upload video");
       setUploading(false);
+    }
+  };
+
+  const handleDeleteVideo = async () => {
+    setDeleting(true);
+    try {
+      const result = await deleteVideo(filmId, selectedSeason, selectedEpisode);
+
+      if (result.success) {
+        toast.success("Đã xóa video");
+        setVideoUrl(null);
+      } else {
+        toast.error(result.error || "Lỗi khi xóa video");
+      }
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      toast.error("Đã xảy ra lỗi khi xóa video");
+    } finally {
+      setDeleting(false);
+      setShowDeleteDialog(false);
     }
   };
 
@@ -126,183 +252,277 @@ export function MovieFormStep4({ filmId, filmType, onComplete, onBack }: MovieFo
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const canUpload =
-    file && !uploading && (filmType === FilmType.MOVIE || (selectedSeason && selectedEpisode));
-  const canComplete = uploadStatus === "success" || !file;
-
-  const selectedSeasonData = seasons.find(s => s.number === selectedSeason);
+  const selectedSeasonData = seasons.find((s) => s.number === selectedSeason);
   const availableEpisodes = selectedSeasonData?.episodes || [];
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Upload Video</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Video className="h-5 w-5" />
+            Quản lý Video
+          </CardTitle>
           <CardDescription>
             {filmType === FilmType.MOVIE
-              ? "Upload video cho phim"
-              : "Upload video cho tập phim (phải chọn mùa và số tập)"}
+              ? "Xem và quản lý video cho phim lẻ"
+              : "Chọn mùa và tập để xem hoặc upload video"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Series Selection */}
           {filmType === FilmType.SERIES && (
-            <div className="space-y-4">
-              {seasons.length === 0 ? (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
-                    Chưa có mùa phim nào. Vui lòng quay lại bước trước để tạo mùa và tập phim.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="season">
-                      Chọn mùa <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={selectedSeason?.toString()}
-                      onValueChange={(value) => {
-                        setSelectedSeason(Number(value));
-                        setSelectedEpisode(undefined);
-                      }}
-                      disabled={uploading}
-                    >
-                      <SelectTrigger id="season">
-                        <SelectValue placeholder="Chọn mùa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {seasons.map((season) => (
-                          <SelectItem key={season.number} value={season.number.toString()}>
-                            Mùa {season.number} ({season.episodes.length} tập)
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="episode">
-                      Chọn tập <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                      value={selectedEpisode?.toString()}
-                      onValueChange={(value) => setSelectedEpisode(Number(value))}
-                      disabled={uploading || !selectedSeason}
-                    >
-                      <SelectTrigger id="episode">
-                        <SelectValue placeholder="Chọn tập" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableEpisodes.map((episode) => (
-                          <SelectItem key={episode.number} value={episode.number.toString()}>
-                            Tập {episode.number}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Chọn Mùa</Label>
+                <Select
+                  value={selectedSeason?.toString()}
+                  onValueChange={(val) => {
+                    setSelectedSeason(Number(val));
+                    setSelectedEpisode(undefined);
+                  }}
+                  disabled={loadingSeasons}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn mùa phim" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {seasons.map((season) => (
+                      <SelectItem
+                        key={season.id}
+                        value={season.number.toString()}
+                      >
+                        Mùa {season.number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Chọn Tập</Label>
+                <Select
+                  value={selectedEpisode?.toString()}
+                  onValueChange={(val) => setSelectedEpisode(Number(val))}
+                  disabled={!selectedSeason}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn tập phim" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableEpisodes.map((episode) => (
+                      <SelectItem
+                        key={episode.id}
+                        value={episode.number.toString()}
+                      >
+                        Tập {episode.number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
 
-          {!file ? (
-            <label className="flex flex-col items-center justify-center min-h-75 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
-              <Video className="h-16 w-16 text-muted-foreground mb-4" />
-              <span className="text-sm text-muted-foreground mb-2">
-                Chọn file video để upload
-              </span>
-              <span className="text-xs text-muted-foreground">
-                Hỗ trợ: MP4, MKV, AVI, MOV
-              </span>
-              <input
-                type="file"
-                accept="video/*"
-                className="hidden"
-                onChange={(e) => {
-                  const selectedFile = e.target.files?.[0];
-                  if (selectedFile) handleFileSelect(selectedFile);
-                }}
-                disabled={uploading}
-              />
-            </label>
+          <Separator />
+
+          {/* Content Area */}
+          {checkingVideo ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+              <p className="text-muted-foreground">Đang kiểm tra video...</p>
+            </div>
+          ) : videoUrl ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-green-600">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">Video đã sẵn sàng</span>
+                </div>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Xóa Video
+                </Button>
+              </div>
+              
+              <VideoPlayer src={videoUrl} />
+            </div>
           ) : (
             <div className="space-y-4">
-              <div className="flex items-start justify-between p-4 border rounded-lg">
-                <div className="flex items-start gap-3 flex-1">
-                  <Video className="h-10 w-10 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{file.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatFileSize(file.size)}
-                    </p>
+              {(filmType === FilmType.MOVIE || (selectedSeason && selectedEpisode)) ? (
+                <>
+                  <div className="flex items-center gap-2 text-amber-600 mb-4">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="font-medium">Chưa có video. Vui lòng upload.</span>
                   </div>
-                </div>
-                {uploadStatus === "success" ? (
-                  <CheckCircle2 className="h-6 w-6 text-green-500 shrink-0" />
-                ) : uploadStatus === "error" ? (
-                  <AlertCircle className="h-6 w-6 text-destructive shrink-0" />
-                ) : (
-                  <button
-                    onClick={handleRemoveFile}
-                    className="p-1 hover:bg-destructive hover:text-destructive-foreground rounded-full transition-colors"
-                    disabled={uploading}
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                )}
-              </div>
 
-              {uploadStatus === "uploading" && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Đang upload...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <Progress value={uploadProgress} />
-                </div>
-              )}
+                  {/* File Upload Area */}
+                  {!file ? (
+                    <label className="flex flex-col items-center justify-center min-h-48 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors">
+                      <Upload className="h-14 w-14 text-muted-foreground mb-4" />
+                      <p className="text-lg font-medium mb-1">
+                        Kéo thả hoặc click để chọn video
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Hỗ trợ MP4, MKV, AVI, MOV, WebM
+                      </p>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleFileSelect(e.target.files[0]);
+                          }
+                        }}
+                        disabled={uploading}
+                      />
+                    </label>
+                  ) : (
+                    <div className="border rounded-lg p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                            <Video className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-medium truncate max-w-50 md:max-w-75">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.size)}
+                            </p>
+                          </div>
+                        </div>
+                        {!uploading && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleRemoveFile}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        )}
+                      </div>
 
-              {uploadStatus === "success" && (
-                <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
-                  <CheckCircle2 className="h-5 w-5" />
-                  <span className="text-sm font-medium">Upload thành công!</span>
-                </div>
-              )}
+                      {uploadStatus !== "idle" && (
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-xs">
+                            <span>
+                              {uploadStatus === "uploading"
+                                ? "Đang upload..."
+                                : uploadStatus === "success"
+                                ? "Hoàn tất"
+                                : "Lỗi"}
+                            </span>
+                            <span>{uploadProgress}%</span>
+                          </div>
+                          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-300 ${
+                                uploadStatus === "success"
+                                  ? "bg-green-500"
+                                  : uploadStatus === "error"
+                                  ? "bg-destructive"
+                                  : "bg-primary"
+                              }`}
+                              style={{ width: `${uploadProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
-              {uploadStatus === "error" && (
-                <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-lg">
-                  <AlertCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">Upload thất bại. Vui lòng thử lại.</span>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={handleRemoveFile}
+                          disabled={uploading}
+                        >
+                          Hủy
+                        </Button>
+                        <Button
+                          onClick={handleUpload}
+                          disabled={uploading || uploadStatus === "success"}
+                        >
+                          {uploading ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Đang upload...
+                            </>
+                          ) : uploadStatus === "success" ? (
+                            <>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Đã upload
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="mr-2 h-4 w-4" />
+                              Bắt đầu Upload
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <Film className="h-12 w-12 mb-4 opacity-20" />
+                  <p>Vui lòng chọn Mùa và Tập để quản lý video</p>
                 </div>
-              )}
-
-              {uploadStatus !== "success" && (
-                <Button
-                  type="button"
-                  onClick={handleUpload}
-                  disabled={!canUpload}
-                  className="w-full"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {uploading ? "Đang upload..." : "Upload Video"}
-                </Button>
               )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={onBack} disabled={uploading}>
-          Quay lại
-        </Button>
-        <Button type="button" onClick={onComplete} disabled={!canComplete || uploading}>
-          {file ? "Hoàn thành" : "Bỏ qua"}
+      {/* Navigation */}
+      <div className="flex justify-end items-center pt-4 border-t">
+        <Button
+          type="button"
+          onClick={onComplete}
+          disabled={uploading}
+          size="lg"
+        >
+          Hoàn tất
         </Button>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa video</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc chắn muốn xóa video này? Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteVideo}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang xóa...
+                </>
+              ) : (
+                "Xóa Video"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

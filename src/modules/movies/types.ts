@@ -96,10 +96,29 @@ export enum SeasonStatus {
   ENDED = "ENDED",
 }
 
+export enum VideoStatus {
+  PROCESSING = "PROCESSING",
+  READY = "READY",
+  FAILED = "FAILED",
+}
+
+export interface Video {
+  id: string;
+  filmId: string;
+  key: string;
+  url: string;
+  status: VideoStatus;
+  maxResolution?: number;
+  episode?: Episode;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Episode {
   id: string;
   number: number;
   releaseDate?: string;
+  video?: Video;
   createdAt: string;
   updatedAt: string;
 }
@@ -121,7 +140,17 @@ export interface CreateSeasonDto {
   status?: SeasonStatus;
 }
 
+export interface UpdateSeasonDto {
+  releaseDate?: string;
+  endDate?: string;
+  status?: SeasonStatus;
+}
+
 export interface CreateEpisodeDto {
+  releaseDate?: string;
+}
+
+export interface UpdateEpisodeDto {
   releaseDate?: string;
 }
 
@@ -160,6 +189,10 @@ export interface MovieFilters {
   ageLimit?: AgeLimit;
   page?: number;
   limit?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
+  sort?: string;
+}
+
+export interface VideoStatusResponse {
+  hasVideo: boolean;
+  video?: Video;
 }

@@ -15,6 +15,8 @@ export async function getComments(
             limit: filters.limit || 10,
         };
         if (filters.filmId) params.filmId = filters.filmId;
+        if (filters.search) params.search = filters.search;
+        if (filters.sort) params.sort = filters.sort;
 
         const response = await api.get<PaginatedApiResponse<Comment>>("/comments", params);
         return response;

@@ -38,20 +38,38 @@ export function useDataTable({
   const pageSize = Number(searchParams.get("limit")) || defaultPageSize;
 
   // Sorting state từ URL
-  const sortKey = searchParams.get("sortBy") || undefined;
-  const sortDirection = (searchParams.get("sortOrder") as "asc" | "desc") || "desc";
+  const sortParam = searchParams.get("sort");
+  let sortKey: string | undefined;
+  let sortDirection: "asc" | "desc" | undefined;
+
+  if (sortParam) {
+    try {
+      const sortObj = JSON.parse(sortParam);
+      const keys = Object.keys(sortObj);
+      if (keys.length > 0) {
+        sortKey = keys[0];
+        sortDirection = sortObj[sortKey].toLowerCase() as "asc" | "desc";
+      }
+    } catch (e) {
+      // ignore invalid json
+    }
+  }
 
   const sortConfig: SortConfig | undefined = useMemo(() => 
-    sortKey ? { key: sortKey, direction: sortDirection } : undefined,
+    sortKey && sortDirection ? { key: sortKey, direction: sortDirection } : undefined,
     [sortKey, sortDirection]
   );
 
   // Helper để update URL params
-  const updateUrl = (updates: Record<string, string | number>) => {
+  const updateUrl = (updates: Record<string, string | number | null>) => {
     const params = new URLSearchParams(searchParams.toString());
     
     Object.entries(updates).forEach(([key, value]) => {
-      params.set(key, value.toString());
+      if (value === null) {
+        params.delete(key);
+      } else {
+        params.set(key, value.toString());
+      }
     });
 
     const url = baseUrl || window.location.pathname;
@@ -69,15 +87,19 @@ export function useDataTable({
 
   // Sorting handler
   const handleSort = (key: string) => {
-    const updates: Record<string, string | number> = { page: 1 }; // Reset về trang 1
+    const updates: Record<string, string | number | null> = { page: 1 }; // Reset về trang 1
     
-    // Toggle direction nếu click cùng column
     if (sortKey === key) {
-      const newDirection = sortDirection === "asc" ? "desc" : "asc";
-      updates.sortOrder = newDirection;
+      if (sortDirection === "asc") {
+        // Currently asc, switch to no sort
+        updates.sort = null;
+      } else {
+        // Currently desc, switch to asc
+        updates.sort = JSON.stringify({ [key]: "ASC" });
+      }
     } else {
-      updates.sortBy = key;
-      updates.sortOrder = "desc"; // Default desc cho column mới
+      // New key, default to desc
+      updates.sort = JSON.stringify({ [key]: "DESC" });
     }
     
     updateUrl(updates);

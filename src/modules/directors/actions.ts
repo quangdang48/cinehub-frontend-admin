@@ -27,6 +27,9 @@ export async function getDirectors(
     if (filters.search) {
       params.search = filters.search;
     }
+    if (filters.sort) {
+      params.sort = filters.sort;
+    }
 
     const response = await api.get<PaginatedApiResponse<Director>>(
       '/directors',

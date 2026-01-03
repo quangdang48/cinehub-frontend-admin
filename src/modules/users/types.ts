@@ -16,6 +16,7 @@ export interface User {
   role: UserRole;
   isActive?: boolean;
   isVerified?: boolean;
+  avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,4 +38,5 @@ export interface UserFilters {
   page?: number;
   limit?: number;
   search?: string;
+  sort?: string;
 }
