@@ -30,4 +30,5 @@ export interface ActorFilters {
   page?: number;
   limit?: number;
   search?: string;
+  sort?: string;
 }

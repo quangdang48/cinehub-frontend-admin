@@ -27,6 +27,9 @@ export async function getActors(
     if (filters.search) {
       params.search = filters.search;
     }
+    if (filters.sort) {
+      params.sort = filters.sort;
+    }
 
     const response = await api.get<PaginatedApiResponse<Actor>>(
       '/actors',

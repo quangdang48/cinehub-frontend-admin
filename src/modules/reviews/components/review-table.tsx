@@ -31,6 +31,7 @@ import { useDataTable } from "@/hooks/use-data-table";
 import { PaginatedApiResponse } from "@/types/api";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { normalizeUrl } from "@/lib/utils";
 
 interface ReviewTableProps {
     data: PaginatedApiResponse<Review>;
@@ -107,7 +108,7 @@ export function ReviewTable({ data }: ReviewTableProps) {
             render: (review: Review) => (
                 <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={review.author.avatar} />
+                        <AvatarImage src={review.author.avatarUrl ? normalizeUrl(review.author.avatarUrl) : undefined} />
                         <AvatarFallback>{getInitials(review.author.name)}</AvatarFallback>
                     </Avatar>
                     <div>
@@ -130,7 +131,6 @@ export function ReviewTable({ data }: ReviewTableProps) {
         {
             key: "rating",
             title: "Đánh giá",
-            sortable: true,
             render: (review: Review) => (
                 <div className="flex items-center gap-1">
                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
@@ -162,7 +162,6 @@ export function ReviewTable({ data }: ReviewTableProps) {
         {
             key: "reports",
             title: "Báo cáo",
-            sortable: true,
             render: (review: Review) => (
                 review.isReported ? (
                     <Badge 
@@ -182,7 +181,6 @@ export function ReviewTable({ data }: ReviewTableProps) {
         {
             key: "createdAt",
             title: "Ngày tạo",
-            sortable: true,
             render: (review: Review) => (
                 <span className="text-sm text-muted-foreground">
                     {formatDate(review.createdAt)}

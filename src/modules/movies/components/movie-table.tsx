@@ -265,7 +265,6 @@ export function MovieTable({ data }: MovieTableProps) {
     {
       key: "rating",
       title: "Đánh giá",
-      sortable: true,
       hideable: true,
       render: (movie: Movie) => (
         <div className="flex flex-col gap-1">

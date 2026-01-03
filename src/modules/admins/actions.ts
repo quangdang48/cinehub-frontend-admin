@@ -15,6 +15,7 @@ export async function getAdmins(
             limit: filters.limit || 10,
         };
         if (filters.search) params.search = filters.search;
+        if (filters.sort) params.sort = filters.sort;
 
         const response = await api.get<PaginatedApiResponse<Admin>>("/admins", params);
         return response;

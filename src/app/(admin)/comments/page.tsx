@@ -1,12 +1,14 @@
 import { Suspense } from "react";
 import { getComments } from "@/modules/comments/actions";
-import { CommentTable } from "@/modules/comments/components";
+import { CommentsPageClient } from "./page-client";
 import { Spinner } from "@/components/ui/spinner";
 
 interface CommentsPageProps {
   searchParams: Promise<{
     page?: string;
     limit?: string;
+    search?: string;
+    sort?: string;
   }>;
 }
 
@@ -16,24 +18,15 @@ export default async function CommentsPage({ searchParams }: CommentsPageProps) 
   const filters = {
     page: params.page ? parseInt(params.page) : 1,
     limit: params.limit ? parseInt(params.limit) : 10,
+    search: params.search,
+    sort: params.sort,
   };
 
   const commentsData = await getComments(filters);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Quản lý bình luận</h1>
-        <p className="text-muted-foreground">
-          Tổng cộng {commentsData.totalItems} bình luận
-        </p>
-      </div>
-
-      {/* Table */}
-      <Suspense fallback={<Spinner />}>
-        <CommentTable data={commentsData} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<Spinner />}>
+      <CommentsPageClient data={commentsData} />
+    </Suspense>
   );
 }

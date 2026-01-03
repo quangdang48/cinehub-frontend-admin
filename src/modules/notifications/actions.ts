@@ -84,7 +84,8 @@ export async function fetchNotificationHistory(
   page: number = 1,
   limit: number = 10,
   type?: string,
-  targetUserId?: string
+  targetUserId?: string,
+  sort?: string
 ): Promise<
   PaginatedApiResponse<Notification> | { success: false; message: string }
 > {
@@ -99,6 +100,7 @@ export async function fetchNotificationHistory(
 
     if (type) params.append('type', type);
     if (targetUserId) params.append('targetUserId', targetUserId);
+    if (sort) params.append('sort', sort);
 
     const response = await fetch(
       `${API_URL}/admin/notifications/history?${params.toString()}`,

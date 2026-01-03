@@ -19,4 +19,6 @@ export interface UpdateGenreDto {
 export interface GenreFilters {
     page?: number;
     limit?: number;
+    search?: string;
+    sort?: string;
 }

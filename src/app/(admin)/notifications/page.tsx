@@ -9,13 +9,14 @@ import {
 export default async function NotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; limit?: string; tab?: string }>;
+  searchParams: Promise<{ page?: string; limit?: string; tab?: string; sort?: string }>;
 }) {
   const params = await searchParams;
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 10;
+  const sort = params.sort;
 
-  const result = await fetchNotificationHistory(page, limit);
+  const result = await fetchNotificationHistory(page, limit, undefined, undefined, sort);
   
   let historyData: { 
       data: Notification[]; 

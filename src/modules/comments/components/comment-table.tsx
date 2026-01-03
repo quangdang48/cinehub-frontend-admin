@@ -37,6 +37,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DataTableWrapper, type Column } from "@/components/shared/data-table";
 import { useDataTable } from "@/hooks/use-data-table";
 import { PaginatedApiResponse } from "@/types/api";
+import { normalizeUrl } from "@/lib/utils";
 
 interface CommentTableProps {
     data: PaginatedApiResponse<Comment>;
@@ -113,7 +114,7 @@ export function CommentTable({ data }: CommentTableProps) {
             render: (comment: Comment) => (
                 <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                        <AvatarImage src={comment.author.avatar} />
+                        <AvatarImage src={comment.author.avatarUrl ? normalizeUrl(comment.author.avatarUrl) : undefined} />
                         <AvatarFallback>{getInitials(comment.author.name)}</AvatarFallback>
                     </Avatar>
                     <div>
@@ -162,7 +163,6 @@ export function CommentTable({ data }: CommentTableProps) {
         {
             key: "reports",
             title: "Báo cáo",
-            sortable: true,
             render: (comment: Comment) => (
                 comment.isReported ? (
                     <Badge 
@@ -194,7 +194,6 @@ export function CommentTable({ data }: CommentTableProps) {
         {
             key: "createdAt",
             title: "Thời gian",
-            sortable: true,
             hideable: true,
             render: (comment: Comment) => (
                 <span className="text-sm text-muted-foreground">

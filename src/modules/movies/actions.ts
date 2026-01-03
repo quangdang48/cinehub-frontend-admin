@@ -41,8 +41,7 @@ export async function getMovies(
     if (filters.status) params.status = filters.status;
     if (filters.type) params.type = filters.type;
     if (filters.ageLimit) params.ageLimit = filters.ageLimit;
-    if (filters.sortBy) params.sortBy = filters.sortBy;
-    if (filters.sortOrder) params.sortOrder = filters.sortOrder;
+    if (filters.sort) params.sort = filters.sort;
 
     const response = await api.get<PaginatedApiResponse<Movie>>("/films", params);
     return response;

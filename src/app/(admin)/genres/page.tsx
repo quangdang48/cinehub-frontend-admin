@@ -7,6 +7,8 @@ interface GenresPageProps {
   searchParams: Promise<{
     page?: string;
     limit?: string;
+    search?: string;
+    sort?: string;
   }>;
 }
 
@@ -16,6 +18,8 @@ export default async function GenresPage({ searchParams }: GenresPageProps) {
   const filters = {
     page: params.page ? parseInt(params.page) : 1,
     limit: params.limit ? parseInt(params.limit) : 10,
+    search: params.search || undefined,
+    sort: params.sort,
   };
 
   const genresData = await getGenres(filters);

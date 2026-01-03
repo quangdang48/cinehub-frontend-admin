@@ -43,6 +43,7 @@ export interface UpdatePlanDto extends Partial<CreatePlanDto> { }
 export interface PlanFilters {
     page?: number;
     limit?: number;
+    sort?: string;
 }
 
 export const billingCycleLabels: Record<BillingCycle, string> = {

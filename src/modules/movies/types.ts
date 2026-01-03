@@ -189,8 +189,7 @@ export interface MovieFilters {
   ageLimit?: AgeLimit;
   page?: number;
   limit?: number;
-  sortBy?: string;
-  sortOrder?: "asc" | "desc";
+  sort?: string;
 }
 
 export interface VideoStatusResponse {
