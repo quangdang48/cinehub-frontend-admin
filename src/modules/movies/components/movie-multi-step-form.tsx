@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Steps } from "@/components/ui/steps";
 import { MovieFormStep1, type MovieFormStep1Data } from "./movie-form-step1";
@@ -11,6 +11,16 @@ import { createMovie, updateMovie } from "../actions";
 import { toast } from "sonner";
 import type { Movie, Genre, Director, Actor } from "../types";
 import { FilmType } from "../types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface MovieMultiStepFormProps {
   movie?: Movie;
@@ -30,6 +40,7 @@ export function MovieMultiStepForm({
   const [isLoading, setIsLoading] = useState(false);
   const [createdFilmId, setCreatedFilmId] = useState<string | null>(movie?.id || null);
   const [filmType, setFilmType] = useState<FilmType>(movie?.type || FilmType.MOVIE);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
 
   const steps = useMemo(() => {
     const baseSteps = [
@@ -45,6 +56,15 @@ export function MovieMultiStepForm({
 
     return baseSteps;
   }, [filmType]);
+
+  const handleCancel = useCallback(() => {
+    setShowCancelDialog(true);
+  }, []);
+
+  const confirmCancel = useCallback(() => {
+    setShowCancelDialog(false);
+    router.push("/movies");
+  }, [router]);
 
   const handleStep1Submit = async (data: MovieFormStep1Data) => {
     setIsLoading(true);
@@ -80,101 +100,112 @@ export function MovieMultiStepForm({
   };
 
   const handleStep2Next = () => {
-    setCurrentStep(3);
-  };
-
-  const handleStep2Back = () => {
-    setCurrentStep(1);
+    if (filmType === FilmType.SERIES) {
+      setCurrentStep(3);
+    } else {
+      // For movies, go directly to video step (which is step 3 for movies)
+      setCurrentStep(3);
+    }
   };
 
   const handleStep3Next = () => {
     // For SERIES, step 3 is seasons/episodes, step 4 is video
-    // For MOVIE, step 3 is video
     if (filmType === FilmType.SERIES) {
       setCurrentStep(4);
     }
   };
 
-  const handleStep3Back = () => {
-    setCurrentStep(2);
-  };
-
-  const handleStep4Complete = () => {
-    toast.success(movie ? "Cập nhật phim thành công" : "Tạo phim mới thành công");
+  const handleComplete = () => {
+    toast.success(movie ? "Cập nhật phim hoàn tất!" : "Tạo phim mới hoàn tất!");
     router.push("/movies");
   };
 
-  const handleStep4Back = () => {
-    if (filmType === FilmType.SERIES) {
-      setCurrentStep(3);
-    } else {
-      setCurrentStep(2);
-    }
-  };
-
   return (
-    <div className="space-y-8">
-      <Steps currentStep={currentStep} steps={steps} />
+    <>
+      <div className="space-y-8">
+        <Steps currentStep={currentStep} steps={steps} />
 
-      {currentStep === 1 && (
-        <MovieFormStep1
-          initialData={
-            movie
-              ? {
-                  title: movie.title,
-                  originalTitle: movie.originalTitle,
-                  englishTitle: movie.englishTitle,
-                  description: movie.description,
-                  ageLimit: movie.ageLimit,
-                  country: movie.country,
-                  releaseDate: movie.releaseDate.split("T")[0],
-                  status: movie.status,
-                  type: movie.type,
-                  imdbRating: movie.imdbRating,
-                  directors: movie.directors.map((d) => d.id),
-                  genres: movie.genres.map((g) => g.id),
-                  casts: movie.casts.map((c) => ({
-                    actorId: c.actor.id,
-                    character: c.character,
-                  })),
-                }
-              : undefined
-          }
-          genres={genres}
-          directors={directors}
-          actors={actors}
-          onNext={handleStep1Submit}
-          isLoading={isLoading}
-        />
-      )}
-
-      {currentStep === 2 && createdFilmId && (
-        <MovieFormStep2
-          filmId={createdFilmId}
-          existingPosters={movie?.posters}
-          onNext={handleStep2Next}
-          onBack={handleStep2Back}
-        />
-      )}
-
-      {currentStep === 3 && createdFilmId && filmType === FilmType.SERIES && (
-        <MovieFormStep3Series
-          filmId={createdFilmId}
-          onNext={handleStep3Next}
-          onBack={handleStep3Back}
-        />
-      )}
-
-      {((currentStep === 3 && filmType === FilmType.MOVIE) ||
-        (currentStep === 4 && filmType === FilmType.SERIES)) &&
-        createdFilmId && (
-          <MovieFormStep4
-            filmId={createdFilmId}
-            filmType={filmType}
-            onComplete={handleStep4Complete}
-            onBack={handleStep4Back}
+        {currentStep === 1 && (
+          <MovieFormStep1
+            initialData={
+              movie
+                ? {
+                    title: movie.title,
+                    originalTitle: movie.originalTitle,
+                    englishTitle: movie.englishTitle,
+                    description: movie.description,
+                    ageLimit: movie.ageLimit,
+                    country: movie.country,
+                    releaseDate: movie.releaseDate.split("T")[0],
+                    status: movie.status,
+                    type: movie.type,
+                    imdbRating: movie.imdbRating,
+                    directors: movie.directors.map((d) => d.id),
+                    genres: movie.genres.map((g) => g.id),
+                    casts: movie.casts.map((c) => ({
+                      actorId: c.actor.id,
+                      character: c.character,
+                    })),
+                  }
+                : undefined
+            }
+            genres={genres}
+            directors={directors}
+            actors={actors}
+            onNext={handleStep1Submit}
+            onCancel={handleCancel}
+            isLoading={isLoading}
+            isEditing={!!movie}
           />
         )}
-    </div>
+
+        {currentStep === 2 && createdFilmId && (
+          <MovieFormStep2
+            filmId={createdFilmId}
+            existingPosters={movie?.posters}
+            onNext={handleStep2Next}
+          />
+        )}
+
+        {currentStep === 3 && createdFilmId && filmType === FilmType.SERIES && (
+          <MovieFormStep3Series
+            filmId={createdFilmId}
+            existingSeasons={movie?.seasons}
+            onNext={handleStep3Next}
+          />
+        )}
+
+        {((currentStep === 3 && filmType === FilmType.MOVIE) ||
+          (currentStep === 4 && filmType === FilmType.SERIES)) &&
+          createdFilmId && (
+            <MovieFormStep4
+              filmId={createdFilmId}
+              filmType={filmType}
+              onComplete={handleComplete}
+            />
+          )}
+      </div>
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {movie ? "Hủy chỉnh sửa phim?" : "Hủy tạo phim?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {movie
+                ? "Các thay đổi chưa lưu sẽ bị mất. Bạn có chắc chắn muốn hủy?"
+                : "Thông tin đã nhập sẽ bị mất. Bạn có chắc chắn muốn hủy?"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Tiếp tục chỉnh sửa</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmCancel}>
+              Xác nhận hủy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

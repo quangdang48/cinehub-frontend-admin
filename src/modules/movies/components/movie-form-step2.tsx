@@ -3,31 +3,32 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Upload, X, Image as ImageIcon } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2, CheckCircle2, AlertCircle, ArrowRight } from "lucide-react";
 import { API_URL } from "@/config";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
+import { normalizeUrl } from "@/lib/utils";
 
 interface PosterUpload {
   type: "default" | "thumbnail" | "backdrop";
   file: File | null;
   preview: string | null;
   uploaded: boolean;
-  existingUrl?: string;  existingId?: string;}
+  uploading: boolean;
+  progress: number;
+  existingUrl?: string;
+  existingId?: string;
+}
 
 interface MovieFormStep2Props {
   filmId: string;
   existingPosters?: Array<{ id: string; url: string; type: string }>;
   onNext: () => void;
-  onBack: () => void;
-  isLoading?: boolean;
 }
 
-export function MovieFormStep2({ filmId, existingPosters, onNext, onBack, isLoading }: MovieFormStep2Props) {
+export function MovieFormStep2({ filmId, existingPosters, onNext }: MovieFormStep2Props) {
   const { data: session } = useSession();
-  const [uploading, setUploading] = useState(false);
   
   // Initialize posters with existing data
   const initializePosters = (): PosterUpload[] => {
@@ -39,24 +40,39 @@ export function MovieFormStep2({ filmId, existingPosters, onNext, onBack, isLoad
         file: null,
         preview: existing?.url || null,
         uploaded: !!existing,
-        existingUrl: existing?.url,        existingId: existing?.id,      };
+        uploading: false,
+        progress: 0,
+        existingUrl: existing?.url,
+        existingId: existing?.id,
+      };
     });
   };
   
   const [posters, setPosters] = useState<PosterUpload[]>(initializePosters());
 
   const handleFileSelect = (type: PosterUpload["type"], file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPosters((prev) =>
-        prev.map((p) =>
-          p.type === type
-            ? { ...p, file, preview: reader.result as string, uploaded: false }
-            : p
-        )
-      );
-    };
-    reader.readAsDataURL(file);
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Vui lòng chọn file hình ảnh");
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Kích thước file tối đa là 5MB");
+      return;
+    }
+
+    setPosters((prev) =>
+      prev.map((p) => {
+        if (p.type === type) {
+          if (p.preview && p.existingUrl !== p.preview) {
+            URL.revokeObjectURL(p.preview);
+          }
+          return { ...p, file, preview: URL.createObjectURL(file), uploaded: false, progress: 0 };
+        }
+        return p;
+      })
+    );
   };
 
   const handleRemoveFile = async (type: PosterUpload["type"]) => {
@@ -86,7 +102,9 @@ export function MovieFormStep2({ filmId, existingPosters, onNext, onBack, isLoad
     
     setPosters((prev) =>
       prev.map((p) =>
-        p.type === type ? { ...p, file: null, preview: null, uploaded: false, existingUrl: undefined, existingId: undefined } : p
+        p.type === type 
+          ? { ...p, file: null, preview: null, uploaded: false, uploading: false, progress: 0, existingUrl: undefined, existingId: undefined } 
+          : p
       )
     );
   };
@@ -94,53 +112,67 @@ export function MovieFormStep2({ filmId, existingPosters, onNext, onBack, isLoad
   const handleUpload = async (type: PosterUpload["type"]) => {
     const poster = posters.find((p) => p.type === type);
     if (!poster?.file || !session?.accessToken) {
-      toast.error("No file selected or not authenticated");
       return;
     }
 
-    setUploading(true);
+    setPosters((prev) =>
+      prev.map((p) => (p.type === type ? { ...p, uploading: true, progress: 0 } : p))
+    );
+
     const formData = new FormData();
     formData.append("file", poster.file);
 
     try {
-      const response = await fetch(
-        `${API_URL}/posters?filmId=${filmId}&type=${type}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-          },
-          body: formData,
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          setPosters((prev) =>
+            prev.map((p) => (p.type === type ? { ...p, progress } : p))
+          );
         }
-      );
+      });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Upload failed");
-      }
+      xhr.addEventListener("load", () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setPosters((prev) =>
+            prev.map((p) => (p.type === type ? { ...p, uploaded: true, uploading: false } : p))
+          );
+          toast.success(`Upload ${getPosterLabel(type)} thành công`);
+        } else {
+          const response = JSON.parse(xhr.responseText);
+          setPosters((prev) =>
+            prev.map((p) => (p.type === type ? { ...p, uploading: false, progress: 0 } : p))
+          );
+          toast.error(response.message || `Lỗi khi upload ${getPosterLabel(type)}`);
+        }
+      });
 
-      setPosters((prev) =>
-        prev.map((p) => (p.type === type ? { ...p, uploaded: true } : p))
-      );
-      toast.success(`Upload ${getPosterLabel(type)} thành công`);
+      xhr.addEventListener("error", () => {
+        setPosters((prev) =>
+          prev.map((p) => (p.type === type ? { ...p, uploading: false, progress: 0 } : p))
+        );
+        toast.error(`Lỗi kết nối khi upload ${getPosterLabel(type)}`);
+      });
+
+      xhr.open("POST", `${API_URL}/posters?filmId=${filmId}&type=${type}`);
+      xhr.setRequestHeader("Authorization", `Bearer ${session.accessToken}`);
+      xhr.send(formData);
     } catch (error) {
       console.error("Upload error:", error);
-      toast.error(
-        error instanceof Error ? error.message : `Lỗi khi upload ${getPosterLabel(type)}`
+      setPosters((prev) =>
+        prev.map((p) => (p.type === type ? { ...p, uploading: false, progress: 0 } : p))
       );
-    } finally {
-      setUploading(false);
+      toast.error(`Lỗi khi upload ${getPosterLabel(type)}`);
     }
   };
 
   const handleUploadAll = async () => {
-    setUploading(true);
-    for (const poster of posters) {
-      if (poster.file && !poster.uploaded) {
-        await handleUpload(poster.type);
-      }
+    const postersToUpload = posters.filter((p) => p.file && !p.uploaded);
+    for (const poster of postersToUpload) {
+      await handleUpload(poster.type);
     }
-    setUploading(false);
   };
 
   const getPosterLabel = (type: PosterUpload["type"]) => {
@@ -157,102 +189,157 @@ export function MovieFormStep2({ filmId, existingPosters, onNext, onBack, isLoad
   const getPosterDescription = (type: PosterUpload["type"]) => {
     switch (type) {
       case "default":
-        return "Ảnh poster chính của phim (tỷ lệ 2:3)";
+        return "Ảnh poster chính của phim (tỷ lệ 2:3, khuyến nghị 400x600px)";
       case "thumbnail":
-        return "Ảnh thumbnail nhỏ (tỷ lệ 16:9)";
+        return "Ảnh thumbnail nhỏ cho danh sách (tỷ lệ 16:9, khuyến nghị 320x180px)";
       case "backdrop":
-        return "Ảnh nền lớn (tỷ lệ 16:9)";
+        return "Ảnh nền lớn cho trang chi tiết (tỷ lệ 16:9, khuyến nghị 1920x1080px)";
+    }
+  };
+
+  const getAspectRatio = (type: PosterUpload["type"]) => {
+    switch (type) {
+      case "default":
+        return "aspect-2/3";
+      case "thumbnail":
+      case "backdrop":
+        return "aspect-video";
     }
   };
 
   const hasUnuploadedFiles = posters.some((p) => p.file && !p.uploaded);
-  const canSkip = !posters.some((p) => p.file);
+  const isAnyUploading = posters.some((p) => p.uploading);
+  const hasAnyPosters = posters.some((p) => p.preview);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {posters.map((poster) => (
-          <Card key={poster.type}>
-            <CardHeader>
-              <CardTitle>{getPosterLabel(poster.type)}</CardTitle>
-              <CardDescription>{getPosterDescription(poster.type)}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {poster.preview ? (
-                <div className="relative aspect-2/3 rounded-lg overflow-hidden border">
-                  <img
-                    src={poster.preview}
-                    alt={getPosterLabel(poster.type)}
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    onClick={() => handleRemoveFile(poster.type)}
-                    className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90"
-                    disabled={uploading}
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                  {poster.uploaded && (
-                    <div className="absolute bottom-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded">
-                      Đã upload
+      <Card>
+        <CardHeader>
+          <CardTitle>Quản lý hình ảnh phim</CardTitle>
+          <CardDescription>
+            Upload các hình ảnh poster, thumbnail và backdrop cho phim. Phim đã được tạo/cập nhật thành công.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {posters.map((poster) => (
+              <Card key={poster.type} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">{getPosterLabel(poster.type)}</CardTitle>
+                    {poster.uploaded && (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    )}
+                  </div>
+                  <CardDescription className="text-xs">
+                    {getPosterDescription(poster.type)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {poster.preview ? (
+                    <div className={`relative ${getAspectRatio(poster.type)} rounded-lg overflow-hidden border bg-muted`}>
+                      <img
+                        src={normalizeUrl(poster.preview)}
+                        alt={getPosterLabel(poster.type)}
+                        className="w-full h-full object-cover"
+                      />
+                      {!poster.uploading && (
+                        <button
+                          onClick={() => handleRemoveFile(poster.type)}
+                          className="absolute top-2 right-2 p-1.5 bg-destructive text-destructive-foreground rounded-full hover:bg-destructive/90 transition-colors shadow-lg"
+                          disabled={isAnyUploading}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                      {poster.uploaded && (
+                        <div className="absolute bottom-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full font-medium shadow-lg">
+                          ✓ Đã upload
+                        </div>
+                      )}
+                      {poster.uploading && (
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
+                          <Loader2 className="h-8 w-8 text-white animate-spin mb-2" />
+                          <span className="text-white text-sm font-medium">{poster.progress}%</span>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <label className={`flex flex-col items-center justify-center ${getAspectRatio(poster.type)} border-2 border-dashed rounded-lg cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors`}>
+                      <ImageIcon className="h-10 w-10 text-muted-foreground mb-2" />
+                      <span className="text-sm font-medium text-muted-foreground">Chọn ảnh</span>
+                      <span className="text-xs text-muted-foreground mt-1">PNG, JPG (Max 10MB)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileSelect(poster.type, file);
+                        }}
+                        disabled={isAnyUploading}
+                      />
+                    </label>
                   )}
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center aspect-2/3 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
-                  <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">Chọn ảnh</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) handleFileSelect(poster.type, file);
-                    }}
-                    disabled={uploading}
-                  />
-                </label>
-              )}
-              {poster.file && !poster.uploaded && (
-                <Button
-                  type="button"
-                  onClick={() => handleUpload(poster.type)}
-                  disabled={uploading}
-                  className="w-full"
-                  size="sm"
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  {poster.existingUrl ? "Thay thế" : "Upload"}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  
+                  {poster.uploading && (
+                    <Progress value={poster.progress} className="h-2" />
+                  )}
+                  
+                  {poster.file && !poster.uploaded && !poster.uploading && (
+                    <Button
+                      type="button"
+                      onClick={() => handleUpload(poster.type)}
+                      className="w-full"
+                      size="sm"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      {poster.existingUrl ? "Thay thế ảnh" : "Upload ảnh"}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="flex justify-between">
-        <Button type="button" variant="outline" onClick={onBack} disabled={uploading}>
-          Quay lại
-        </Button>
-        <div className="flex gap-2">
+      <div className="flex justify-between items-center">
+        <p className="text-sm text-muted-foreground">
+          {hasAnyPosters
+            ? hasUnuploadedFiles
+              ? "Có ảnh chưa được upload. Vui lòng upload hoặc xóa trước khi tiếp tục."
+              : "Tất cả ảnh đã được upload."
+            : "Bạn có thể bỏ qua bước này và thêm ảnh sau."}
+        </p>
+        <div className="flex gap-3">
           {hasUnuploadedFiles && (
             <Button
               type="button"
               variant="secondary"
               onClick={handleUploadAll}
-              disabled={uploading}
+              disabled={isAnyUploading}
             >
-              <Upload className="h-4 w-4 mr-2" />
-              {uploading ? "Đang upload..." : "Upload tất cả"}
+              {isAnyUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Đang upload...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload tất cả
+                </>
+              )}
             </Button>
           )}
           <Button
             type="button"
             onClick={onNext}
-            disabled={uploading || hasUnuploadedFiles}
+            disabled={isAnyUploading || hasUnuploadedFiles}
           >
-            {canSkip ? "Bỏ qua" : "Tiếp theo"}
+            Tiếp theo
+            <ArrowRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
       </div>
