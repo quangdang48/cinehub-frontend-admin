@@ -69,7 +69,7 @@ const movieFormSchema = z.object({
 export type MovieFormStep1Data = z.infer<typeof movieFormSchema>;
 
 interface MovieFormStep1Props {
-  initialData?: MovieFormStep1Data;
+  initialData?: Movie;
   genres: Genre[];
   directors: Director[];
   actors: Actor[];
@@ -185,7 +185,7 @@ export function MovieFormStep1({
     if (initialData?.casts) {
       const inputs: Record<string, string> = {};
       initialData.casts.forEach((cast) => {
-        inputs[cast.actorId] = cast.character;
+        inputs[cast.id] = cast.character;
       });
       setCharacterInputs(inputs);
     }
@@ -193,7 +193,21 @@ export function MovieFormStep1({
 
   const form = useForm<MovieFormStep1Data>({
     resolver: zodResolver(movieFormSchema) as any,
-    defaultValues: initialData || {
+    defaultValues: initialData ? {
+      title: initialData.title,
+      originalTitle: initialData.originalTitle,
+      englishTitle: initialData.englishTitle,
+      description: initialData.description || "",
+      releaseDate: initialData.releaseDate,
+      country: initialData.country,
+      ageLimit: initialData.ageLimit,
+      status: initialData.status,
+      type: initialData.type,
+      imdbRating: initialData.imdbRating,
+      genres: initialData.genres.map((g) => g.id),
+      directors: initialData.directors.map((d) => d.id),
+      casts: initialData.casts.map((c) => ({ actorId: c.actor.id, character: c.character })),
+    } : {
       title: "",
       originalTitle: "",
       englishTitle: "",
@@ -218,16 +232,19 @@ export function MovieFormStep1({
   const [genreMap, setGenreMap] = useState<Map<string, Genre>>(() => {
     const map = new Map<string, Genre>();
     initialGenres.forEach((g) => map.set(g.id, g));
+    initialData?.genres.forEach((g) => map.set(g.id, g));
     return map;
   });
   const [directorMap, setDirectorMap] = useState<Map<string, Director>>(() => {
     const map = new Map<string, Director>();
     initialDirectors.forEach((d) => map.set(d.id, d));
+    initialData?.directors.forEach((d) => map.set(d.id, d));
     return map;
   });
   const [actorMap, setActorMap] = useState<Map<string, Actor>>(() => {
     const map = new Map<string, Actor>();
     initialActors.forEach((a) => map.set(a.id, a));
+    initialData?.casts.forEach((c) => map.set(c.actor.id, c.actor));
     return map;
   });
 
