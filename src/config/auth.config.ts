@@ -13,4 +13,4 @@ export const authConfig: NextAuthConfig = {
   providers: [],
 };
 
-export const ACCESS_TOKEN_EXPIRES_IN = 60 * 60 * 1000; // 1 hour
+export const ACCESS_TOKEN_EXPIRES_IN = parseInt(process.env.ACCESS_TOKEN_EXPIRES_IN || '840000', 10)

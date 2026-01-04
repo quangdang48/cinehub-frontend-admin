@@ -62,7 +62,7 @@ export async function getDirectorById(id: string): Promise<Director | null> {
 }
 
 export async function createDirector(
-  data: CreateDirectorDto
+  data: FormData
 ): Promise<ActionResult<Director>> {
   try {
     const response = await api.post<ApiResponse<Director>>('/directors', data);
@@ -82,7 +82,7 @@ export async function createDirector(
 
 export async function updateDirector(
   id: string,
-  data: UpdateDirectorDto
+  data: FormData
 ): Promise<ActionResult<Director>> {
   try {
     const response = await api.put<ApiResponse<Director>>(

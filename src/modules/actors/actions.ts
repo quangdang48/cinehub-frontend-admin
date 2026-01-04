@@ -62,7 +62,7 @@ export async function getActorById(id: string): Promise<Actor | null> {
 }
 
 export async function createActor(
-  data: CreateActorDto
+  data: FormData
 ): Promise<ActionResult<Actor>> {
   try {
     const response = await api.post<ApiResponse<Actor>>('/actors', data);
@@ -82,7 +82,7 @@ export async function createActor(
 
 export async function updateActor(
   id: string,
-  data: UpdateActorDto
+  data: FormData
 ): Promise<ActionResult<Actor>> {
   try {
     const response = await api.put<ApiResponse<Actor>>(`/actors/${id}`, data);

@@ -407,7 +407,7 @@ export async function deleteVideo(
 
 export async function searchGenres(search?: string): Promise<Genre[]> {
   try {
-    const params: Record<string, string | number> = { limit: 100 };
+    const params: Record<string, string | number> = { limit: 40 };
     if (search) params.search = search;
     
     const response = await api.get<PaginatedApiResponse<Genre>>("/genres", params);
@@ -420,7 +420,7 @@ export async function searchGenres(search?: string): Promise<Genre[]> {
 
 export async function searchDirectors(search?: string): Promise<Director[]> {
   try {
-    const params: Record<string, string | number> = { limit: 100 };
+    const params: Record<string, string | number> = { limit: 40 };
     if (search) params.search = search;
     
     const response = await api.get<PaginatedApiResponse<Director>>("/directors", params);
@@ -433,7 +433,7 @@ export async function searchDirectors(search?: string): Promise<Director[]> {
 
 export async function searchActors(search?: string): Promise<Actor[]> {
   try {
-    const params: Record<string, string | number> = { limit: 100 };
+    const params: Record<string, string | number> = { limit: 40 };
     if (search) params.search = search;
     
     const response = await api.get<PaginatedApiResponse<Actor>>("/actors", params);

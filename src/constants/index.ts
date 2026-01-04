@@ -10,7 +10,6 @@ export const SIDEBAR_ITEMS = [
   { title: 'Thanh toán', href: '/payments', icon: 'CreditCard' },
   { title: 'Người dùng', href: '/users', icon: 'Users' },
   { title: 'Quản trị viên', href: '/admins', icon: 'Admins' },
-  { title: 'Giao dịch', href: '/transactions', icon: 'Receipt' },
   { title: 'Bình luận', href: '/comments', icon: 'MessageSquare' },
   { title: 'Đánh giá', href: '/reviews', icon: 'Star' },
   { title: 'Thông báo', href: '/notifications', icon: 'Bell' },

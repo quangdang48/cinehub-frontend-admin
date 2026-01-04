@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useEffect } from "react";
+import { useTransition, useEffect, useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import {
@@ -22,6 +22,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Camera } from "lucide-react";
+import { normalizeUrl } from "@/lib/utils";
 import { createActor, updateActor } from "../actions";
 import type { Actor } from "../types";
 
@@ -31,6 +34,7 @@ interface ActorFormData {
     bio: string;
     birthDate: string;
     nationality: string;
+    photo?: FileList;
 }
 
 interface ActorFormProps {
@@ -42,6 +46,8 @@ interface ActorFormProps {
 
 export function ActorForm({ open, onOpenChange, actor, onSuccess }: ActorFormProps) {
     const [isPending, startTransition] = useTransition();
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(actor?.photoUrl || null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const isEditing = !!actor;
 
     const {
@@ -72,22 +78,40 @@ export function ActorForm({ open, onOpenChange, actor, onSuccess }: ActorFormPro
                 birthDate: actor?.birthDate ? actor.birthDate.split("T")[0] : "",
                 nationality: actor?.nationality || "",
             });
+            setAvatarPreview(actor?.photoUrl || null);
         }
     }, [open, actor, reset]);
 
+    useEffect(() => {
+        return () => {
+            if (avatarPreview && avatarPreview !== actor?.photoUrl && avatarPreview.startsWith("blob:")) {
+                URL.revokeObjectURL(avatarPreview);
+            }
+        };
+    }, [avatarPreview, actor?.photoUrl]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setAvatarPreview(URL.createObjectURL(file));
+        }
+    };
+
     const onSubmit = (data: ActorFormData) => {
         startTransition(async () => {
-            const payload = {
-                name: data.name,
-                gender: data.gender || null,
-                bio: data.bio || null,
-                birthDate: data.birthDate || null,
-                nationality: data.nationality || null,
-            };
+            const formData = new FormData();
+            formData.append("name", data.name);
+            if (data.gender) formData.append("gender", data.gender);
+            if (data.bio) formData.append("bio", data.bio);
+            if (data.birthDate) formData.append("birthDate", data.birthDate);
+            if (data.nationality) formData.append("nationality", data.nationality);
+            if (data.photo && data.photo.length > 0) {
+                formData.append("photo", data.photo[0]);
+            }
 
             const result = isEditing
-                ? await updateActor(actor.id, payload)
-                : await createActor(payload);
+                ? await updateActor(actor.id, formData)
+                : await createActor(formData);
 
             if (result.success) {
                 toast.success(isEditing ? "Cập nhật diễn viên thành công" : "Thêm diễn viên thành công");
@@ -109,7 +133,7 @@ export function ActorForm({ open, onOpenChange, actor, onSuccess }: ActorFormPro
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-125">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? "Chỉnh sửa diễn viên" : "Thêm diễn viên mới"}
@@ -122,6 +146,38 @@ export function ActorForm({ open, onOpenChange, actor, onSuccess }: ActorFormPro
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)}>
                     <div className="grid gap-4 py-4">
+                        <div className="flex flex-col items-center justify-center gap-4">
+                            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                                <Avatar className="h-28 w-28 border-2 border-border">
+                                    <AvatarImage src={avatarPreview ? normalizeUrl(avatarPreview) : ""} alt={watch("name") || ""} />
+                                    <AvatarFallback className="text-2xl font-bold bg-muted">
+                                        {watch("name")?.charAt(0).toUpperCase() || "A"}
+                                    </AvatarFallback>
+                                </Avatar>
+                                {/* Overlay icon Camera */}
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Camera className="h-8 w-8 text-white" />
+                                </div>
+                            </div>
+                            <Input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                {...register("photo", {
+                                    onChange: handleFileChange
+                                })}
+                                ref={(e) => {
+                                    register("photo").ref(e);
+                                    fileInputRef.current = e;
+                                }}
+                            />
+                            <div className="text-center">
+                                <p className="text-sm font-medium text-primary cursor-pointer hover:underline" onClick={() => fileInputRef.current?.click()}>
+                                    {isEditing ? "Thay đổi ảnh đại diện" : "Thêm ảnh đại diện"}
+                                </p>
+                            </div>
+                        </div>
+
                         <div className="grid gap-2">
                             <Label htmlFor="name">Tên diễn viên <span className="text-red-500">*</span></Label>
                             <Input
