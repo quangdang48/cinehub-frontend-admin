@@ -9,14 +9,23 @@ import {
 export default async function NotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; limit?: string; tab?: string; sort?: string }>;
+  searchParams: Promise<{ 
+    page?: string; 
+    limit?: string; 
+    tab?: string; 
+    sort?: string;
+    type?: string;
+    targetUserId?: string;
+  }>;
 }) {
   const params = await searchParams;
   const page = Number(params.page) || 1;
   const limit = Number(params.limit) || 10;
-  const sort = params.sort;
+  const sort = params.sort || 'desc';
+  const type = params.type;
+  const targetUserId = params.targetUserId;
 
-  const result = await fetchNotificationHistory(page, limit, undefined, undefined, sort);
+  const result = await fetchNotificationHistory(page, limit, type, targetUserId, sort);
   
   let historyData: { 
       data: Notification[]; 
@@ -60,6 +69,9 @@ export default async function NotificationsPage({
                 totalItems={historyData.totalItems}
                 currentPage={historyData.currentPage}
                 pageSize={historyData.pageSize}
+                currentType={type}
+                currentUserId={targetUserId}
+                currentSort={sort}
              />
         }
       />

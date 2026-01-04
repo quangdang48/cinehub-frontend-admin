@@ -20,8 +20,18 @@ interface BackendClientsResponse {
 
 interface BackendHistoryResponse {
   success: boolean;
-  data: Notification[];
-  meta: {
+  data:
+    | Notification[]
+    | {
+        success: boolean;
+        data: Notification[];
+        meta: {
+          total: number;
+          page: number;
+          limit: number;
+        };
+      };
+  meta?: {
     total: number;
     page: number;
     limit: number;
@@ -93,6 +103,11 @@ export async function fetchNotificationHistory(
     const session = await auth();
     const token = session?.accessToken;
 
+    console.log('=== DEBUG fetchNotificationHistory ===');
+    console.log('Session:', session);
+    console.log('Token exists:', !!token);
+    console.log('API_URL:', API_URL);
+
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -102,41 +117,73 @@ export async function fetchNotificationHistory(
     if (targetUserId) params.append('targetUserId', targetUserId);
     if (sort) params.append('sort', sort);
 
-    const response = await fetch(
-      `${API_URL}/admin/notifications/history?${params.toString()}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        cache: 'no-store',
-      }
-    );
+    const url = `${API_URL}/admin/notifications/history?${params.toString()}`;
+    console.log('Fetching URL:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      cache: 'no-store',
+    });
+
+    console.log('Response status:', response.status);
+    console.log('Response ok:', response.ok);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.log('Error data:', errorData);
       throw new Error(errorData.message || `Error: ${response.status}`);
     }
 
     const result = (await response.json()) as BackendHistoryResponse;
+    console.log('Result:', JSON.stringify(result, null, 2));
 
-    // Transform backend response { data, meta: { total, page, limit } }
-    // to PaginatedApiResponse { data, totalItems, totalPages, currentPage, itemsPerPage }
-    const totalItems = result.meta?.total || 0;
-    const itemsPerPage = result.meta?.limit || limit;
+    // Handle nested response structure (backend wraps response twice)
+    // Structure: { success, data: { success, data: [...], meta: {...} } }
+    let actualData: Notification[] = [];
+    let meta = { total: 0, page: 1, limit: 10 };
+
+    if (Array.isArray(result.data)) {
+      // Direct structure: { data: [...], meta: {...} }
+      actualData = result.data;
+      meta = result.meta || meta;
+    } else if (
+      result.data &&
+      typeof result.data === 'object' &&
+      'data' in result.data
+    ) {
+      // Nested structure: { data: { data: [...], meta: {...} } }
+      actualData = result.data.data || [];
+      meta = result.data.meta || meta;
+    }
+
+    const totalItems = meta.total || 0;
+    const itemsPerPage = meta.limit || limit;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
-    const currentPage = result.meta?.page || page;
+    const currentPage = meta.page || page;
+
+    console.log(
+      'Transformed - totalItems:',
+      totalItems,
+      'totalPages:',
+      totalPages,
+      'dataLength:',
+      actualData.length
+    );
 
     return {
       success: true,
-      data: result.data || [],
+      data: actualData,
       totalItems,
       totalPages,
       currentPage,
       itemsPerPage,
     } as PaginatedApiResponse<Notification>;
   } catch (error) {
+    console.error('=== ERROR fetchNotificationHistory ===');
     console.error('Failed to fetch notification history:', error);
     if (error instanceof Error) {
       return { success: false, message: error.message };
@@ -444,5 +491,43 @@ export async function sendNotificationToUsers(
       return { success: false, message: error.message };
     }
     return { success: false, message: 'Gửi thông báo đến nhóm users thất bại' };
+  }
+}
+/**
+ * Delete a notification from history
+ */
+export async function deleteNotification(
+  notificationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const session = await auth();
+    const token = session?.accessToken;
+
+    const response = await fetch(
+      `${API_URL}/admin/notifications/${notificationId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error: ${response.status}`);
+    }
+
+    return {
+      success: true,
+      message: 'Đã xóa thông báo thành công',
+    };
+  } catch (error) {
+    console.error('Failed to delete notification:', error);
+    if (error instanceof Error) {
+      return { success: false, message: error.message };
+    }
+    return { success: false, message: 'Xóa thông báo thất bại' };
   }
 }

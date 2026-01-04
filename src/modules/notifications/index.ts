@@ -4,3 +4,6 @@ export * from './components/notification-sender';
 export * from './components/notification-tester';
 export * from './components/notification-history';
 export * from './components/notification-tabs';
+export * from './components/notification-filters';
+export * from './components/notification-detail-modal';
+export * from './components/resend-notification-modal';
