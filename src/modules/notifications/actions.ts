@@ -103,11 +103,6 @@ export async function fetchNotificationHistory(
     const session = await auth();
     const token = session?.accessToken;
 
-    console.log('=== DEBUG fetchNotificationHistory ===');
-    console.log('Session:', session);
-    console.log('Token exists:', !!token);
-    console.log('API_URL:', API_URL);
-
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
@@ -118,7 +113,6 @@ export async function fetchNotificationHistory(
     if (sort) params.append('sort', sort);
 
     const url = `${API_URL}/admin/notifications/history?${params.toString()}`;
-    console.log('Fetching URL:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -129,20 +123,12 @@ export async function fetchNotificationHistory(
       cache: 'no-store',
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response ok:', response.ok);
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      console.log('Error data:', errorData);
       throw new Error(errorData.message || `Error: ${response.status}`);
     }
 
     const result = (await response.json()) as BackendHistoryResponse;
-    console.log('Result:', JSON.stringify(result, null, 2));
-
-    // Handle nested response structure (backend wraps response twice)
-    // Structure: { success, data: { success, data: [...], meta: {...} } }
     let actualData: Notification[] = [];
     let meta = { total: 0, page: 1, limit: 10 };
 
@@ -341,10 +327,6 @@ export async function fetchUsersForNotification(
   try {
     const session = await auth();
     const token = session?.accessToken;
-    console.log(
-      '[fetchUsersForNotification] Token:',
-      token ? 'present' : 'missing'
-    );
 
     const params = new URLSearchParams({
       page: page.toString(),
@@ -353,7 +335,6 @@ export async function fetchUsersForNotification(
     if (search) params.append('search', search);
 
     const url = `${API_URL}/admin/notifications/users?${params.toString()}`;
-    console.log('[fetchUsersForNotification] URL:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -364,19 +345,13 @@ export async function fetchUsersForNotification(
       cache: 'no-store',
     });
 
-    console.log(
-      '[fetchUsersForNotification] Response status:',
-      response.status
-    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.log('[fetchUsersForNotification] Error response:', errorText);
       throw new Error(`Error: ${response.status}`);
     }
 
     const result = await response.json();
-    console.log('[fetchUsersForNotification] Result:', result);
 
     // Handle nested response structure: result.data may contain {data: [], meta: {}}
     const usersData = Array.isArray(result.data)
