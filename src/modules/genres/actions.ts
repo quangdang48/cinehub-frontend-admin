@@ -48,7 +48,6 @@ export async function createGenre(
     data: CreateGenreDto
 ): Promise<ActionResult<Genre>> {
     try {
-        console.log("Creating genre with data:", data);
         const response = await api.post<ApiResponse<Genre>>("/genres", data);
         revalidatePath("/genres");
         return {

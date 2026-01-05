@@ -127,28 +127,7 @@ export function MovieMultiStepForm({
 
         {currentStep === 1 && (
           <MovieFormStep1
-            initialData={
-              movie
-                ? {
-                    title: movie.title,
-                    originalTitle: movie.originalTitle,
-                    englishTitle: movie.englishTitle,
-                    description: movie.description,
-                    ageLimit: movie.ageLimit,
-                    country: movie.country,
-                    releaseDate: movie.releaseDate.split("T")[0],
-                    status: movie.status,
-                    type: movie.type,
-                    imdbRating: movie.imdbRating,
-                    directors: movie.directors.map((d) => d.id),
-                    genres: movie.genres.map((g) => g.id),
-                    casts: movie.casts.map((c) => ({
-                      actorId: c.actor.id,
-                      character: c.character,
-                    })),
-                  }
-                : undefined
-            }
+            initialData={movie}
             genres={genres}
             directors={directors}
             actors={actors}
