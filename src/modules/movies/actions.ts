@@ -165,21 +165,15 @@ export async function deleteMovie(id: string): Promise<ActionResult> {
 
 export async function getSeasons(filmId: string): Promise<Season[]> {
   try {
-    // First call to get total count
-    const firstResponse = await api.get<PaginatedApiResponse<Season>>(
-      `/films/${filmId}/seasons`,
-      { limit: 1, page: 1 }
-    );
-    
-    if (firstResponse.totalItems === 0) {
-      return [];
-    }
-    
     // Second call to get all seasons
     const response = await api.get<PaginatedApiResponse<Season>>(
       `/films/${filmId}/seasons`,
-      { limit: firstResponse.totalItems, page: 1 }
+      { limit: 100, page: 1, sort: '{"number": "ASC"}' },
     );
+
+    if (response.totalItems === 0) {
+      return [];
+    }
     
     // Load episodes for each season
     const seasonsWithEpisodes = await Promise.all(
@@ -204,7 +198,7 @@ export async function getEpisodes(
     // First call to get total count
     const firstResponse = await api.get<PaginatedApiResponse<Episode>>(
       `/films/${filmId}/seasons/${seasonNumber}/episodes`,
-      { limit: 1, page: 1 }
+      { limit: 1, page: 1, sort: '{"number": "ASC"}' },
     );
     
     if (firstResponse.totalItems === 0) {
@@ -372,11 +366,21 @@ export async function checkVideoStatus(
         Authorization: `Bearer ${session?.accessToken}`,
       },
     });
+    
     if (!response.ok) {
-      throw new Error("Video not found");
+      if (response.status === 404) {
+        return { hasVideo: false };
+      }
+      throw new Error("Failed to check video status");
     }
-    return { hasVideo: true };
+    
+    const data = await response.json();
+    return { 
+      hasVideo: true, 
+      status: data.data?.status 
+    };
   } catch (error) {
+    console.error("Error checking video status:", error);
     return { hasVideo: false };
   }
 }

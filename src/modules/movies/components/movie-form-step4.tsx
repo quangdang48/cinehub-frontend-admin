@@ -27,11 +27,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Upload, Video, Trash2, Loader2, CheckCircle, AlertCircle, Film } from "lucide-react";
+import { Upload, Video, Trash2, Loader2, CheckCircle, AlertCircle, Film, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { API_URL } from "@/config";
 import { getSeasons, checkVideoStatus, deleteVideo } from "../actions";
-import { FilmType } from "../types";
+import { FilmType, VideoStatus } from "../types";
 import type { Season } from "../types";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
@@ -62,6 +62,7 @@ export function MovieFormStep4({
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [videoStatus, setVideoStatus] = useState<VideoStatus | null>(null);
   const [checkingVideo, setCheckingVideo] = useState(false);
   
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -103,13 +104,17 @@ export function MovieFormStep4({
   const checkCurrentVideo = async () => {
     setCheckingVideo(true);
     setVideoUrl(null);
+    setVideoStatus(null);
     try {
       const result = await checkVideoStatus(filmId, selectedSeason, selectedEpisode);
       if (result.hasVideo) {
-        let url = `/api/stream?filmId=${filmId}`;
-        if (selectedSeason) url += `&season=${selectedSeason}`;
-        if (selectedEpisode) url += `&episode=${selectedEpisode}`;
-        setVideoUrl(url);
+        setVideoStatus(result.status || null);
+        if (result.status === VideoStatus.READY) {
+          let url = `/api/stream?filmId=${filmId}`;
+          if (selectedSeason) url += `&season=${selectedSeason}`;
+          if (selectedEpisode) url += `&episode=${selectedEpisode}`;
+          setVideoUrl(url);
+        }
       }
     } catch (error) {
       console.error("Error checking video:", error);
@@ -235,6 +240,7 @@ export function MovieFormStep4({
       if (result.success) {
         toast.success("Đã xóa video");
         setVideoUrl(null);
+        setVideoStatus(null);
       } else {
         toast.error(result.error || "Lỗi khi xóa video");
       }
@@ -335,7 +341,7 @@ export function MovieFormStep4({
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
               <p className="text-muted-foreground">Đang kiểm tra video...</p>
             </div>
-          ) : videoUrl ? (
+          ) : videoStatus === VideoStatus.READY && videoUrl ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-green-600">
@@ -353,6 +359,31 @@ export function MovieFormStep4({
               </div>
               
               <VideoPlayer src={videoUrl} />
+            </div>
+          ) : videoStatus === VideoStatus.PROCESSING ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                <div className="flex items-center gap-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+                  <div>
+                    <p className="font-medium text-blue-900 dark:text-blue-100">
+                      Video đang được xử lý
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      Vui lòng chờ trong giây lát. Quá trình này có thể mất vài phút. Bạn có thể thoát trong lúc chờ.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={checkCurrentVideo}
+                  disabled={checkingVideo}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${checkingVideo ? 'animate-spin' : ''}`} />
+                  Làm mới
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-4">

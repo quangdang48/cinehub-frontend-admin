@@ -42,7 +42,7 @@ import {
   FilmType,
   UpdateCastDto,
 } from "../types";
-import { statusOptions, typeOptions, ageLimitOptions } from "../const";
+import { statusOptions, typeOptions, ageLimitOptions, COUNTRY_LIST } from "../const";
 import { searchGenres, searchDirectors, searchActors } from "../actions";
 import { useDebounce } from "@/hooks/use-debounce";
 
@@ -385,12 +385,24 @@ export function MovieFormStep1({
               render={({ field, fieldState }) => (
                 <Field data-invalid={fieldState.invalid}>
                   <FieldLabel htmlFor={field.name}>Quốc gia *</FieldLabel>
-                  <Input
-                    {...field}
-                    id={field.name}
-                    placeholder="Nhập quốc gia"
-                    aria-invalid={fieldState.invalid}
-                  />
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger
+                      id={field.name}
+                      aria-invalid={fieldState.invalid}
+                    >
+                      <SelectValue placeholder="Chọn quốc gia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COUNTRY_LIST.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {fieldState.invalid && (
                     <FieldError errors={[fieldState.error]} />
                   )}

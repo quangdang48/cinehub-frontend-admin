@@ -95,6 +95,7 @@ interface DeleteConfirmation {
   seasonNumber: number;
   episodeNumber?: number;
   episodeCount?: number;
+  subsequentCount?: number;
 }
 
 interface MovieFormStep3Props {
@@ -136,7 +137,7 @@ export function MovieFormStep3Series({
           releaseDate: season.releaseDate?.split("T")[0],
           endDate: season.endDate?.split("T")[0],
           status: season.status,
-          episodeCount: season.episodes.length,
+          episodeCount: season.episodes.length, // Just for display, equals current episode count
           episodes: season.episodes.map((ep) => ({
             number: ep.number,
             releaseDate: ep.releaseDate?.split("T")[0],
@@ -181,11 +182,13 @@ export function MovieFormStep3Series({
   // Confirm delete season
   const confirmDeleteSeason = (seasonIndex: number) => {
     const season = seasons[seasonIndex];
+    const subsequentCount = seasons.length - 1 - seasonIndex;
     setDeleteConfirm({
       type: "season",
       seasonIndex,
       seasonNumber: season.number,
       episodeCount: season.episodes.length,
+      subsequentCount,
     });
   };
 
@@ -193,12 +196,14 @@ export function MovieFormStep3Series({
   const confirmDeleteEpisode = (seasonIndex: number, episodeIndex: number) => {
     const season = seasons[seasonIndex];
     const episode = season.episodes[episodeIndex];
+    const subsequentCount = season.episodes.length - 1 - episodeIndex;
     setDeleteConfirm({
       type: "episode",
       seasonIndex,
       episodeIndex,
       seasonNumber: season.number,
       episodeNumber: episode.number,
+      subsequentCount,
     });
   };
 
@@ -211,7 +216,7 @@ export function MovieFormStep3Series({
 
     // If not saved yet, just remove from local state
     if (!season.isSaved) {
-      setSeasons(seasons.filter((_, i) => i !== seasonIndex));
+      setSeasons(seasons.slice(0, seasonIndex));
       setDeleteConfirm(null);
       return;
     }
@@ -221,8 +226,14 @@ export function MovieFormStep3Series({
     try {
       const result = await deleteSeasonApi(filmId, season.number);
       if (result.success) {
-        setSeasons(seasons.filter((_, i) => i !== seasonIndex));
-        toast.success(`Đã xóa mùa ${season.number} và tất cả các tập`);
+        setSeasons(seasons.slice(0, seasonIndex));
+        toast.success(
+          `Đã xóa mùa ${season.number} và ${
+            deleteConfirm.subsequentCount
+              ? `${deleteConfirm.subsequentCount} mùa phía sau`
+              : "tất cả các tập"
+          }`
+        );
       } else {
         toast.error(result.error || "Lỗi khi xóa mùa phim");
       }
@@ -246,11 +257,12 @@ export function MovieFormStep3Series({
     // If not saved yet, just remove from local state
     if (!episode.isSaved) {
       const updatedSeasons = [...seasons];
-      updatedSeasons[seasonIndex].episodes = season.episodes.filter(
-        (_, i) => i !== episodeIndex
-      );
-      updatedSeasons[seasonIndex].episodeCount =
-        updatedSeasons[seasonIndex].episodes.length;
+      const keptEpisodes = season.episodes.slice(0, episodeIndex);
+      updatedSeasons[seasonIndex] = {
+        ...updatedSeasons[seasonIndex],
+        episodes: keptEpisodes,
+        episodeCount: keptEpisodes.length,
+      };
       setSeasons(updatedSeasons);
       setDeleteConfirm(null);
       return;
@@ -266,14 +278,19 @@ export function MovieFormStep3Series({
       );
       if (result.success) {
         const updatedSeasons = [...seasons];
-        updatedSeasons[seasonIndex].episodes = season.episodes.filter(
-          (_, i) => i !== episodeIndex
-        );
-        updatedSeasons[seasonIndex].episodeCount =
-          updatedSeasons[seasonIndex].episodes.length;
+        const keptEpisodes = season.episodes.slice(0, episodeIndex);
+        updatedSeasons[seasonIndex] = {
+          ...updatedSeasons[seasonIndex],
+          episodes: keptEpisodes,
+          episodeCount: keptEpisodes.length,
+        };
         setSeasons(updatedSeasons);
         toast.success(
-          `Đã xóa tập ${episode.number} của mùa ${season.number}`
+          `Đã xóa tập ${episode.number}${
+            deleteConfirm.subsequentCount
+              ? ` và ${deleteConfirm.subsequentCount} tập phía sau`
+              : ""
+          } của mùa ${season.number}`
         );
       } else {
         toast.error(result.error || "Lỗi khi xóa tập phim");
@@ -287,36 +304,49 @@ export function MovieFormStep3Series({
     }
   };
 
-  const updateSeasonLocal = (index: number, updates: Partial<SeasonForm>) => {
-    setSeasons(
-      seasons.map((season, i) =>
+  const updateSeasonLocal = (
+    index: number,
+    updates: Partial<SeasonForm>,
+    markDirty = true
+  ) => {
+    setSeasons((prevSeasons) =>
+      prevSeasons.map((season, i) =>
         i === index
-          ? { ...season, ...updates, hasChanges: season.isSaved ? true : false }
+          ? {
+              ...season,
+              ...updates,
+              hasChanges:
+                updates.hasChanges !== undefined
+                  ? updates.hasChanges
+                  : markDirty && season.isSaved
+                  ? true
+                  : season.hasChanges,
+            }
           : season
-      )
-    );
-  };
-
-  const toggleSeasonEdit = (index: number) => {
-    setSeasons(
-      seasons.map((season, i) =>
-        i === index ? { ...season, isEditing: !season.isEditing } : season
       )
     );
   };
 
   const generateEpisodes = (index: number) => {
     const season = seasons[index];
-    if (season.episodeCount <= 0) {
+    const targetCount = season.episodeCount;
+    const currentCount = season.episodes.length;
+
+    if (targetCount <= 0) {
       toast.error("Vui lòng nhập số lượng tập hợp lệ");
       return;
     }
 
-    // Keep existing episodes and add new ones
-    const existingCount = season.episodes.length;
-    const episodes: EpisodeForm[] = [...season.episodes];
+    if (targetCount <= currentCount) {
+      toast.error("Số lượng tập phải lớn hơn số tập hiện có");
+      return;
+    }
 
-    for (let i = existingCount + 1; i <= season.episodeCount; i++) {
+    // Add new episodes
+    const episodes: EpisodeForm[] = [...season.episodes];
+    const newEpisodeCount = targetCount - currentCount;
+
+    for (let i = currentCount + 1; i <= targetCount; i++) {
       episodes.push({
         number: i,
         isSaved: false,
@@ -325,9 +355,10 @@ export function MovieFormStep3Series({
       });
     }
 
-    updateSeasonLocal(index, { episodes });
+    // Update episodes and episodeCount without marking season as dirty
+    updateSeasonLocal(index, { episodes, episodeCount: targetCount }, false);
     toast.success(
-      `Đã tạo ${season.episodeCount - existingCount} tập mới cho mùa ${season.number}`
+      `Đã tạo ${newEpisodeCount} tập mới cho mùa ${season.number}`
     );
   };
 
@@ -336,69 +367,100 @@ export function MovieFormStep3Series({
     episodeIndex: number,
     updates: Partial<EpisodeForm>
   ) => {
-    const updatedSeasons = [...seasons];
-    const episode = updatedSeasons[seasonIndex].episodes[episodeIndex];
-    updatedSeasons[seasonIndex].episodes[episodeIndex] = {
-      ...episode,
-      ...updates,
-      hasChanges: episode.isSaved ? true : false,
-    };
-    setSeasons(updatedSeasons);
+    setSeasons((prevSeasons) => {
+      const updatedSeasons = [...prevSeasons];
+      const episode = updatedSeasons[seasonIndex].episodes[episodeIndex];
+      updatedSeasons[seasonIndex] = {
+        ...updatedSeasons[seasonIndex],
+        episodes: updatedSeasons[seasonIndex].episodes.map((ep, idx) =>
+          idx === episodeIndex
+            ? {
+                ...episode,
+                ...updates,
+                hasChanges:
+                  updates.hasChanges !== undefined
+                    ? updates.hasChanges
+                    : episode.isSaved
+                    ? true
+                    : false,
+              }
+            : ep
+        ),
+      };
+      return updatedSeasons;
+    });
   };
 
   // Save/Update season
   const saveSeason = async (index: number) => {
+    // Get latest season state
     const season = seasons[index];
+    if (!season) return;
 
     setSavingSeasonIndex(index);
     setLoading(true);
 
     try {
-      if (season.isSaved && season.hasChanges) {
-        // Update existing season
-        const updateResult = await updateSeasonApi(filmId, season.number, {
-          releaseDate: season.releaseDate,
-          endDate: season.endDate,
-          status: season.status,
-        });
+      if (season.isSaved) {
+        // Update existing season info only
+        if (season.hasChanges) {
+          const updateResult = await updateSeasonApi(filmId, season.number, {
+            releaseDate: season.releaseDate,
+            endDate: season.endDate,
+            status: season.status,
+          });
 
-        if (!updateResult.success) {
-          toast.error(updateResult.error || "Lỗi khi cập nhật mùa phim");
-          return;
-        }
-
-        // Update changed episodes
-        for (const episode of season.episodes) {
-          if (episode.isSaved && episode.hasChanges) {
-            await updateEpisodeApi(filmId, season.number, episode.number, {
-              releaseDate: episode.releaseDate,
-            });
-          } else if (!episode.isSaved) {
-            // Create new episodes
-            await createEpisode(filmId, season.number, {
-              releaseDate: episode.releaseDate,
-            });
+          if (!updateResult.success) {
+            toast.error(updateResult.error || "Lỗi khi cập nhật mùa phim");
+            setLoading(false);
+            setSavingSeasonIndex(null);
+            return;
           }
         }
 
-        updateSeasonLocal(index, {
-          hasChanges: false,
-          isEditing: false,
-          episodes: season.episodes.map((ep) => ({
-            ...ep,
-            isSaved: true,
-            hasChanges: false,
-            isEditing: false,
-          })),
-        });
-        toast.success(`Đã cập nhật mùa ${season.number}`);
-      } else {
-        // Create new season
-        if (season.episodes.length === 0) {
-          toast.error("Vui lòng tạo ít nhất 1 tập cho mùa");
-          return;
+        // Handle episodes separately: update changed ones, create new ones
+        let createdCount = 0;
+        let updatedCount = 0;
+        for (const episode of season.episodes) {
+          if (!episode.isSaved) {
+            const result = await createEpisode(filmId, season.number, {
+              releaseDate: episode.releaseDate,
+            });
+            if (result.success) createdCount++;
+          } else if (episode.hasChanges) {
+            const result = await updateEpisodeApi(
+              filmId,
+              season.number,
+              episode.number,
+              { releaseDate: episode.releaseDate }
+            );
+            if (result.success) updatedCount++;
+          }
         }
 
+        updateSeasonLocal(
+          index,
+          {
+            hasChanges: false,
+            isEditing: false,
+            episodes: season.episodes.map((ep) => ({
+              ...ep,
+              isSaved: true,
+              hasChanges: false,
+              isEditing: false,
+            })),
+          },
+          false
+        );
+
+        // Build appropriate message
+        const messages: string[] = [];
+        if (season.hasChanges) messages.push(`Đã cập nhật thông tin mùa ${season.number}`);
+        if (createdCount > 0) messages.push(`Đã thêm ${createdCount} tập mới`);
+        if (updatedCount > 0) messages.push(`Đã cập nhật ${updatedCount} tập`);
+        toast.success(messages.join(". ") || `Mùa ${season.number} đã được lưu`);
+      } else {
+        // Create new season
         const seasonResult = await createSeason(filmId, {
           releaseDate: season.releaseDate,
           endDate: season.endDate,
@@ -407,33 +469,34 @@ export function MovieFormStep3Series({
 
         if (!seasonResult.success) {
           toast.error(seasonResult.error || "Lỗi khi tạo mùa phim");
+          setLoading(false);
+          setSavingSeasonIndex(null);
           return;
         }
 
         // Create episodes for this season
         let successCount = 0;
         for (const episode of season.episodes) {
-          if (!episode.isSaved) {
-            const episodeResult = await createEpisode(filmId, season.number, {
-              releaseDate: episode.releaseDate,
-            });
-
-            if (episodeResult.success) {
-              successCount++;
-            }
-          }
+          const episodeResult = await createEpisode(filmId, season.number, {
+            releaseDate: episode.releaseDate,
+          });
+          if (episodeResult.success) successCount++;
         }
 
-        updateSeasonLocal(index, {
-          isSaved: true,
-          hasChanges: false,
-          episodes: season.episodes.map((ep) => ({
-            ...ep,
+        updateSeasonLocal(
+          index,
+          {
             isSaved: true,
             hasChanges: false,
-          })),
-        });
-        toast.success(`Đã lưu mùa ${season.number} với ${successCount} tập`);
+            episodes: season.episodes.map((ep) => ({
+              ...ep,
+              isSaved: true,
+              hasChanges: false,
+            })),
+          },
+          false
+        );
+        toast.success(`Đã tạo mùa ${season.number} với ${successCount} tập`);
       }
     } catch (error) {
       console.error("Error saving season:", error);
@@ -449,19 +512,22 @@ export function MovieFormStep3Series({
     const season = seasons[seasonIndex];
     const episode = season.episodes[episodeIndex];
 
+    if (!season.isSaved) {
+      toast.error("Vui lòng lưu mùa phim trước khi lưu tập phim");
+      return;
+    }
+
     if (!episode.hasChanges && episode.isSaved) return;
 
     setLoading(true);
     try {
-      if (episode.isSaved) {
+      if (episode.isSaved && episode.hasChanges) {
         // Update existing episode
         const result = await updateEpisodeApi(
           filmId,
           season.number,
           episode.number,
-          {
-            releaseDate: episode.releaseDate,
-          }
+          { releaseDate: episode.releaseDate }
         );
 
         if (result.success) {
@@ -473,7 +539,7 @@ export function MovieFormStep3Series({
         } else {
           toast.error(result.error || "Lỗi khi cập nhật tập phim");
         }
-      } else {
+      } else if (!episode.isSaved) {
         // Create new episode
         const result = await createEpisode(filmId, season.number, {
           releaseDate: episode.releaseDate,
@@ -485,9 +551,9 @@ export function MovieFormStep3Series({
             hasChanges: false,
             isEditing: false,
           });
-          toast.success(`Đã tạo tập ${episode.number}`);
+          toast.success(`Đã thêm tập ${episode.number} vào mùa ${season.number}`);
         } else {
-          toast.error(result.error || "Lỗi khi tạo tập phim");
+          toast.error(result.error || "Lỗi khi thêm tập phim");
         }
       }
     } catch (error) {
@@ -499,19 +565,34 @@ export function MovieFormStep3Series({
   };
 
   const saveAllSeasons = async () => {
-    const unsavedOrChanged = seasons.filter((s) => !s.isSaved || s.hasChanges);
-    if (unsavedOrChanged.length === 0) return;
-
     setLoading(true);
-    for (let i = 0; i < seasons.length; i++) {
-      if (!seasons[i].isSaved || seasons[i].hasChanges) {
-        await saveSeason(i);
+
+    try {
+      // Process each season sequentially
+      // Since updateSeasonLocal uses functional update, each save will work with the latest state
+      for (let i = 0; i < seasons.length; i++) {
+        const currentSeason = seasons[i];
+
+        const needsSave =
+          !currentSeason.isSaved ||
+          currentSeason.hasChanges ||
+          currentSeason.episodes.some((e) => !e.isSaved || e.hasChanges);
+
+        if (needsSave) {
+          await saveSeason(i);
+        }
       }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const hasUnsavedChanges = seasons.some((s) => !s.isSaved || s.hasChanges);
+  const hasUnsavedChanges = seasons.some(
+    (s) =>
+      !s.isSaved ||
+      s.hasChanges ||
+      s.episodes.some((e) => !e.isSaved || e.hasChanges)
+  );
   const totalEpisodes = seasons.reduce(
     (acc, s) => acc + s.episodes.length,
     0
@@ -548,13 +629,18 @@ export function MovieFormStep3Series({
                 <>
                   Bạn có chắc chắn muốn xóa{" "}
                   <strong>Mùa {deleteConfirm.seasonNumber}</strong>?
-                  {deleteConfirm.episodeCount && deleteConfirm.episodeCount > 0 && (
-                    <span className="block mt-2 text-destructive font-medium">
-                      ⚠️ Hành động này sẽ xóa tất cả{" "}
-                      {deleteConfirm.episodeCount} tập trong mùa này. Dữ liệu
-                      video đã tải lên cũng sẽ bị xóa và không thể khôi phục.
-                    </span>
-                  )}
+                  <div className="mt-2 space-y-1 text-destructive font-medium">
+                    {deleteConfirm.subsequentCount! > 0 && (
+                      <p>
+                        ⚠️ Hành động này sẽ xóa Mùa {deleteConfirm.seasonNumber}{" "}
+                        và {deleteConfirm.subsequentCount} mùa phía sau.
+                      </p>
+                    )}
+                    <p>
+                      ⚠️ Tất cả các tập và dữ liệu video đã tải lên của các mùa
+                      này sẽ bị xóa vĩnh viễn.
+                    </p>
+                  </div>
                 </>
               ) : (
                 <>
@@ -564,10 +650,19 @@ export function MovieFormStep3Series({
                     {deleteConfirm?.seasonNumber}
                   </strong>
                   ?
-                  <span className="block mt-2 text-destructive font-medium">
-                    ⚠️ Video đã tải lên cho tập này cũng sẽ bị xóa và không
-                    thể khôi phục.
-                  </span>
+                  <div className="mt-2 space-y-1 text-destructive font-medium">
+                    {deleteConfirm?.subsequentCount! > 0 && (
+                      <p>
+                        ⚠️ Hành động này sẽ xóa Tập {deleteConfirm?.episodeNumber}{" "}
+                        và {deleteConfirm?.subsequentCount} tập phía sau của mùa
+                        này.
+                      </p>
+                    )}
+                    <p>
+                      ⚠️ Video đã tải lên cho các tập này cũng sẽ bị xóa và
+                      không thể khôi phục.
+                    </p>
+                  </div>
                 </>
               )}
             </AlertDialogDescription>
@@ -642,7 +737,7 @@ export function MovieFormStep3Series({
         >
           {seasons.map((season, seasonIndex) => (
             <AccordionItem
-              key={seasonIndex}
+              key={`${seasonIndex}-${season.episodes.length}`}
               value={`season-${seasonIndex}`}
               className="border rounded-lg overflow-hidden"
             >
@@ -694,7 +789,7 @@ export function MovieFormStep3Series({
                   </div>
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
+              <AccordionContent className="px-4 pb-4 data-[state=open]:h-auto">
                 <div className="space-y-6 pt-2">
                   {/* Season Info */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -755,14 +850,18 @@ export function MovieFormStep3Series({
                       <div className="flex gap-2">
                         <Input
                           type="number"
-                          min="1"
+                          min={season.episodes.length}
                           value={season.episodeCount || ""}
                           onChange={(e) =>
-                            updateSeasonLocal(seasonIndex, {
-                              episodeCount: Number(e.target.value),
-                            })
+                            updateSeasonLocal(
+                              seasonIndex,
+                              {
+                                episodeCount: Number(e.target.value),
+                              },
+                              false
+                            )
                           }
-                          placeholder="Nhập số tập"
+                          placeholder="Nhập số tập muốn tạo thêm"
                           disabled={loading}
                           className="flex-1"
                         />
@@ -776,7 +875,7 @@ export function MovieFormStep3Series({
                             !season.episodeCount ||
                             season.episodeCount <= season.episodes.length
                           }
-                          title="Thêm tập mới"
+                          title="Tạo danh sách tập"
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -868,8 +967,12 @@ export function MovieFormStep3Series({
                                               episodeIndex
                                             )
                                           }
-                                          disabled={loading}
-                                          title="Lưu tập"
+                                          disabled={loading || !season.isSaved}
+                                          title={
+                                            !season.isSaved
+                                              ? "Vui lòng lưu mùa trước"
+                                              : "Lưu tập"
+                                          }
                                         >
                                           <Save className="h-4 w-4" />
                                         </Button>
@@ -935,7 +1038,7 @@ export function MovieFormStep3Series({
                       ) : (
                         <>
                           <Save className="h-4 w-4 mr-2" />
-                          {season.isSaved ? "Cập nhật mùa" : "Lưu mùa"}{" "}
+                          {season.isSaved ? "Cập nhật mùa" : "Tạo mùa"}{" "}
                           {season.number}
                         </>
                       )}

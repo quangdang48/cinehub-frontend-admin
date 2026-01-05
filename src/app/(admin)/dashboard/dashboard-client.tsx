@@ -180,45 +180,6 @@ export function DashboardClient({
             </CardContent>
           </Card>
         </div>
-
-        {/* Summary Cards with colors */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-            <CardHeader>
-              <CardTitle className="text-white/90">Tỷ lệ chuyển đổi</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">65.7%</div>
-              <p className="text-white/80 text-sm mt-2">
-                Người dùng đăng ký gói Premium
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
-            <CardHeader>
-              <CardTitle className="text-white/90">Doanh thu trung bình</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">$10.45</div>
-              <p className="text-white/80 text-sm mt-2">
-                ARPU (Average Revenue Per User)
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-            <CardHeader>
-              <CardTitle className="text-white/90">Thời gian xem TB</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-4xl font-bold">2.5h</div>
-              <p className="text-white/80 text-sm mt-2">
-                Thời gian xem trung bình/ngày
-              </p>
-            </CardContent>
-          </Card>
-        </div>
       </TabsContent>
 
       {/* Tab Biểu đồ */}

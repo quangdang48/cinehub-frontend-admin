@@ -194,5 +194,10 @@ export interface MovieFilters {
 
 export interface VideoStatusResponse {
   hasVideo: boolean;
+  status?: VideoStatus;
   video?: Video;
+}
+
+export interface VideoStatusDto {
+  status: VideoStatus;
 }

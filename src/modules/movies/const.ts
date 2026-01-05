@@ -25,3 +25,28 @@ export const ageLimitOptions: { value: AgeLimit; label: string }[] = [
   { value: AgeLimit.T16, label: "T16 - Từ 16 tuổi" },
   { value: AgeLimit.T18, label: "T18 - Từ 18 tuổi" },
 ];
+
+export const COUNTRY_LIST = [
+  { value: "VN", label: "Việt Nam" },
+  { value: "US", label: "Mỹ" },
+  { value: "KR", label: "Hàn Quốc" },
+  { value: "CN", label: "Trung Quốc" },
+  { value: "JP", label: "Nhật Bản" },
+  { value: "TH", label: "Thái Lan" },
+  { value: "HK", label: "Hồng Kông" },
+  { value: "TW", label: "Đài Loan" },
+  { value: "UK", label: "Anh" },
+  { value: "FR", label: "Pháp" },
+  { value: "DE", label: "Đức" },
+  { value: "IN", label: "Ấn Độ" },
+  { value: "PH", label: "Philippines" },
+  { value: "ID", label: "Indonesia" },
+  { value: "AU", label: "Úc" },
+  { value: "CA", label: "Canada" },
+  { value: "ES", label: "Tây Ban Nha" },
+  { value: "IT", label: "Ý" },
+  { value: "RU", label: "Nga" },
+  { value: "BR", label: "Brazil" },
+  { value: "MX", label: "Mexico" },
+  { value: "OTHER", label: "Khác" },
+];
