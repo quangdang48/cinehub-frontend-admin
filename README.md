@@ -14,7 +14,7 @@ Dự án Dashboard quản trị cho hệ thống Cinehub, được xây dựng b
 1.  **Clone dự án:**
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/quangdang48/cinehub-frontend-admin
     cd cinehub-frontend-admin
     ```
 
