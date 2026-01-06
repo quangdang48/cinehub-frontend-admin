@@ -1,6 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useCallback } from "react";
+import React, { createContext, useContext, useCallback, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useSSE, type SSENotification } from "@/hooks/use-sse";
 import { API_URL } from "@/config";
@@ -15,6 +16,7 @@ interface NotificationContextType {
     markAsRead: (id: string) => void;
     markAllAsRead: () => void;
     clearNotifications: () => void;
+    refreshNotifications: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -28,6 +30,8 @@ export function NotificationProvider({
     children,
     sseUrl = `${API_URL}/admin/notifications/subscribe`,
 }: NotificationProviderProps) {
+    const { data: session } = useSession();
+
     const handleNotification = useCallback((notification: SSENotification) => {
         // Show toast for new notifications
         const toastOptions = {
@@ -93,6 +97,7 @@ export function NotificationProvider({
         markAsRead,
         markAllAsRead,
         clearNotifications,
+        setInitialNotifications,
     } = useSSE({
         url: sseUrl,
         autoConnect: true,
@@ -100,6 +105,82 @@ export function NotificationProvider({
         onConnect: handleConnect,
         onError: handleError,
     });
+
+    // Fetch notification history from API
+    const fetchNotificationHistory = useCallback(async (forceRefresh = false) => {
+        if (!session?.accessToken) {
+            console.log("No access token available for fetching notifications");
+            return;
+        }
+
+        try {
+            console.log("Fetching notification history...", { forceRefresh });
+            const response = await fetch(
+                `${API_URL}/admin/notifications/history?page=1&limit=20`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session.accessToken}`,
+                    },
+                }
+            );
+
+            console.log("Notification history response status:", response.status);
+
+            if (!response.ok) {
+                throw new Error(`Error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log("Notification history result:", result);
+            
+            // Handle nested data structure: result.data can be array or { data: [], meta: {} }
+            let historyData: unknown[] = [];
+            if (Array.isArray(result.data)) {
+                historyData = result.data;
+            } else if (result.data && Array.isArray(result.data.data)) {
+                historyData = result.data.data;
+            } else if (result.data && typeof result.data === 'object') {
+                // If data is object but not array, try to get nested data
+                historyData = result.data.data || [];
+            }
+
+            console.log("Extracted historyData:", historyData);
+
+            // Transform history data to SSENotification format
+            const transformedNotifications: SSENotification[] = historyData.map(
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (item: any) => ({
+                    id: item.id,
+                    type: item.type || "info",
+                    title: item.title,
+                    message: item.message || item.content,
+                    content: item.message || item.content,
+                    timestamp: item.createdAt || new Date().toISOString(),
+                    read: true, // Historical notifications are marked as read
+                    metadata: item.metadata,
+                })
+            );
+
+            console.log("Transformed notifications:", transformedNotifications.length);
+            setInitialNotifications(transformedNotifications, forceRefresh);
+        } catch (error) {
+            console.error("Failed to fetch notification history:", error);
+        }
+    }, [session?.accessToken, setInitialNotifications]);
+
+    // Load notification history when session is available
+    useEffect(() => {
+        if (session?.accessToken) {
+            fetchNotificationHistory(false);
+        }
+    }, [session?.accessToken, fetchNotificationHistory]);
+
+    // Create a refresh function that forces update
+    const refreshNotifications = useCallback(async () => {
+        await fetchNotificationHistory(true);
+    }, [fetchNotificationHistory]);
 
     return (
         <NotificationContext.Provider
@@ -113,6 +194,7 @@ export function NotificationProvider({
                 markAsRead,
                 markAllAsRead,
                 clearNotifications,
+                refreshNotifications,
             }}
         >
             {children}

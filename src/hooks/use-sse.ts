@@ -26,6 +26,7 @@ export interface SSENotification {
 interface UseSSEOptions {
   url: string;
   autoConnect?: boolean;
+  initialNotifications?: SSENotification[];
   onNotification?: (notification: SSENotification) => void;
   onConnect?: (clientId: string) => void;
   onError?: (error: Event) => void;
@@ -41,12 +42,17 @@ export interface UseSSEReturn {
   markAsRead: (id: string) => void;
   markAllAsRead: () => void;
   clearNotifications: () => void;
+  setInitialNotifications: (
+    notifications: SSENotification[],
+    forceUpdate?: boolean
+  ) => void;
 }
 
 export function useSSE(options: UseSSEOptions): UseSSEReturn {
   const {
     url,
     autoConnect = true,
+    initialNotifications = [],
     onNotification,
     onConnect,
     onError,
@@ -54,7 +60,9 @@ export function useSSE(options: UseSSEOptions): UseSSEReturn {
 
   const [isConnected, setIsConnected] = useState(false);
   const [clientId, setClientId] = useState<string | null>(null);
-  const [notifications, setNotifications] = useState<SSENotification[]>([]);
+  const [notifications, setNotifications] =
+    useState<SSENotification[]>(initialNotifications);
+  const initializedRef = useRef(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -170,6 +178,31 @@ export function useSSE(options: UseSSEOptions): UseSSEReturn {
     setNotifications([]);
   }, []);
 
+  const setInitialNotifications = useCallback(
+    (newNotifications: SSENotification[], forceUpdate = false) => {
+      if (!initializedRef.current || forceUpdate) {
+        setNotifications((prev) => {
+          if (forceUpdate) {
+            // On force update (refresh), merge new notifications with existing ones
+            const existingIds = new Set(prev.map((n) => n.id));
+            const uniqueNew = newNotifications.filter(
+              (n) => !existingIds.has(n.id)
+            );
+            return [...prev, ...uniqueNew].slice(0, 50);
+          }
+          // Initial load - merge with existing notifications, avoiding duplicates
+          const existingIds = new Set(prev.map((n) => n.id));
+          const uniqueNew = newNotifications.filter(
+            (n) => !existingIds.has(n.id)
+          );
+          return [...prev, ...uniqueNew].slice(0, 50); // Keep max 50 notifications
+        });
+        initializedRef.current = true;
+      }
+    },
+    []
+  );
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
@@ -192,5 +225,6 @@ export function useSSE(options: UseSSEOptions): UseSSEReturn {
     markAsRead,
     markAllAsRead,
     clearNotifications,
+    setInitialNotifications,
   };
 }

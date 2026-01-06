@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Bell, CheckCheck, Trash2, Circle } from "lucide-react";
+import Link from "next/link";
+import { Bell, CheckCheck, Trash2, Circle, RefreshCw } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -82,6 +83,7 @@ function NotificationItem({
 
 export function NotificationDropdown() {
     const [open, setOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const {
         isConnected,
         notifications,
@@ -89,7 +91,18 @@ export function NotificationDropdown() {
         markAsRead,
         markAllAsRead,
         clearNotifications,
+        refreshNotifications,
     } = useNotifications();
+
+    const handleRefresh = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        setIsRefreshing(true);
+        try {
+            await refreshNotifications();
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     return (
         <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -125,6 +138,16 @@ export function NotificationDropdown() {
                         )}
                     </div>
                     <div className="flex items-center gap-1">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={handleRefresh}
+                            disabled={isRefreshing}
+                            title="Làm mới thông báo"
+                        >
+                            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                        </Button>
                         {unreadCount > 0 && (
                             <Button
                                 variant="ghost"
@@ -179,8 +202,8 @@ export function NotificationDropdown() {
                 {/* Footer */}
                 <DropdownMenuSeparator />
                 <div className="p-2">
-                    <Button variant="ghost" className="w-full text-sm" size="sm">
-                        Xem tất cả thông báo
+                    <Button variant="ghost" className="w-full text-sm" size="sm" asChild>
+                        <Link href="/notifications">Xem tất cả thông báo</Link>
                     </Button>
                 </div>
             </DropdownMenuContent>
