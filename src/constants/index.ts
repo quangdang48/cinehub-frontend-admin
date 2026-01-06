@@ -1,0 +1,20 @@
+// ==================== Navigation ====================
+export const SIDEBAR_ITEMS = [
+  { title: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
+  { title: 'Quản lý phim', href: '/movies', icon: 'Film' },
+  { title: 'Thể loại', href: '/genres', icon: 'Tags' },
+  { title: 'Diễn viên', href: '/actors', icon: 'UserCircle' },
+  { title: 'Đạo diễn', href: '/directors', icon: 'Clapperboard' },
+  { title: 'Gói dịch vụ', href: '/plans', icon: 'CreditCard' },
+  { title: 'Đăng ký', href: '/subscriptions', icon: 'Receipt' },
+  { title: 'Thanh toán', href: '/payments', icon: 'CreditCard' },
+  { title: 'Người dùng', href: '/users', icon: 'Users' },
+  { title: 'Quản trị viên', href: '/admins', icon: 'Admins' },
+  { title: 'Bình luận', href: '/comments', icon: 'MessageSquare' },
+  { title: 'Đánh giá', href: '/reviews', icon: 'Star' },
+  { title: 'Thông báo', href: '/notifications', icon: 'Bell' },
+  { title: 'Cá nhân', href: '/profile', icon: 'Profile' },
+] as const;
+
+export const DEFAULT_PAGE_SIZE = 10;
+export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
