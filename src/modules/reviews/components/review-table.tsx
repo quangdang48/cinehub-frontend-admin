@@ -74,6 +74,8 @@ export function ReviewTable({ data }: ReviewTableProps) {
                 toast.error(result.error || "Không thể xóa đánh giá");
             }
         });
+        setDeleteDialogOpen(false);
+        setReportDialogOpen(false);
     };
 
     const openDeleteDialog = (review: Review) => {

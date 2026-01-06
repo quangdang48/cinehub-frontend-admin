@@ -80,6 +80,8 @@ export function CommentTable({ data }: CommentTableProps) {
                 toast.error(result.error || "Không thể xóa bình luận");
             }
         });
+        setDeleteDialogOpen(false);
+        setReportDialogOpen(false);
     };
 
     const openDeleteDialog = (comment: Comment) => {
