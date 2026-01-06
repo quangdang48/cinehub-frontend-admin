@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cinehub Admin Dashboard
 
-## Getting Started
+Dự án Dashboard quản trị cho hệ thống Cinehub, được xây dựng bằng Next.js (App Router), TypeScript, Shadcn UI và Tailwind CSS.
 
-First, run the development server:
+## Yêu cầu hệ thống
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Đảm bảo máy của bạn đã cài đặt:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- [Node.js](https://nodejs.org/) (phiên bản 18 trở lên)
+- Trình quản lý gói: `pnpm` (khuyến khích), `npm` hoặc `yarn`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cài đặt
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1.  **Clone dự án:**
 
-## Learn More
+    ```bash
+    git clone <repository-url>
+    cd cinehub-frontend-admin
+    ```
 
-To learn more about Next.js, take a look at the following resources:
+2.  **Cài đặt các thư viện phụ thuộc:**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+    ```bash
+    # Sử dụng pnpm
+    pnpm install
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+    # Hoặc npm
+    npm install
 
-## Deploy on Vercel
+    # Hoặc yarn
+    yarn install
+    ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Cấu hình môi trường
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Dự án cần các biến môi trường để kết nối với Backend và cấu hình xác thực.
+
+1.  Sao chép file mẫu `.env.example` thành `.env`:
+
+    ```bash
+    cp .env.example .env
+    ```
+
+2.  Cập nhật các giá trị trong file `.env`:
+
+    - `NEXTAUTH_URL`: Đường dẫn chạy dự án Admin hiện tại (mặc định local: `http://localhost:3000`).
+    - `NEXTAUTH_SECRET`: Khóa bí mật dùng để mã hóa session (có thể dùng chuỗi ngẫu nhiên dài bất kỳ).
+    - `BACKEND_CLIENT_API`: Đường dẫn API của Client (nếu cần tham chiếu) (mặc định: `http://localhost:8080/api/v1`).
+    - `BACKEND_ADMIN_API`: Đường dẫn API Service dành cho Admin (mặc định: `http://localhost:3322/api/v1`).
+    - `ACCESS_TOKEN_EXPIRES_IN`: Thời gian hết hạn của token (tính bằng milli-seconds hoặc seconds tùy cấu hình backend, mặc định ví dụ: `840000`).
+
+## Chạy dự án
+
+1.  **Development Mode:**
+
+    ```bash
+    npm run dev
+    # hoặc pnpm dev / yarn dev
+    ```
+
+    Truy cập: `http://localhost:3000`
+
+2.  **Production Build:**
+
+    ```bash
+    npm run build
+    npm run start
+    ```
+
+## Các Scripts khác
+
+- `npm run lint`: Kiểm tra lỗi và format code.
